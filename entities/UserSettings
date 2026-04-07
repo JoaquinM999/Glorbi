@@ -1,0 +1,19 @@
+{
+  "name": "UserSettings",
+  "type": "object",
+  "properties": {
+    "binance_api_key": {
+      "type": "string",
+      "description": "Binance API Key (read-only)"
+    },
+    "binance_api_secret": {
+      "type": "string",
+      "description": "Binance API Secret (read-only)"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "User display name"
+    }
+  },
+  "required": []
+}
