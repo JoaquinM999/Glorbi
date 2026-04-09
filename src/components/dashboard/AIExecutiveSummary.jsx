@@ -1,7 +1,15 @@
-import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, RefreshCw, Terminal } from "lucide-react";
+/**
+ * AIExecutiveSummary.jsx
+ *
+ * Changes from Base44 version:
+ *  - import { base44 } → import { InvokeLLM } from @/api/integrations
+ *  - base44.integrations.Core.InvokeLLM → InvokeLLM
+ *  All UI logic is unchanged.
+ */
+import React, { useState } from 'react'
+import { InvokeLLM } from '@/api/integrations'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Sparkles, RefreshCw, Terminal } from 'lucide-react'
 
 const MOCK_ANALYSIS = `GLORBI QUANT ENGINE — ANÁLISIS EJECUTIVO
 ========================================
@@ -33,58 +41,56 @@ Net PNL: -$1,240.50 (período seleccionado)
 Sharpe < 1.0 en período corto. Normal en mercado lateral.
 Max Drawdown controlado. Sin señales de over-trading.
 
-— ANÁLISIS GENERADO POR IA. NO ES ASESORÍA FINANCIERA —`;
+— ANÁLISIS GENERADO POR IA. NO ES ASESORÍA FINANCIERA —`
 
 export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) {
-  const [analysis, setAnalysis] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [usedMock, setUsedMock] = useState(false);
+  const [analysis, setAnalysis] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [usedMock, setUsedMock] = useState(false)
 
   const generate = async () => {
-    setLoading(true);
-    setAnalysis(null);
+    setLoading(true)
+    setAnalysis(null)
     try {
       const context = `
-        Fear & Greed Index: ${fgValue ?? "N/A"}
-        BTC Dominance: ${btcDom ?? "N/A"}%
-        Net PNL: $${stats?.netPnl?.toFixed(2) ?? "N/A"}
-        Win Rate: ${stats?.winRate?.toFixed(1) ?? "N/A"}%
-        Profit Factor: ${stats?.profitFactor?.toFixed(2) ?? "N/A"}x
-        Sharpe Ratio: ${stats?.sharpe?.toFixed(2) ?? "N/A"}
-        Max Drawdown: $${stats?.maxDrawdown?.toFixed(2) ?? "N/A"}
-        Balance estimado: $${balance ?? "25,430.50"}
-      `;
+        Fear & Greed Index: ${fgValue ?? 'N/A'}
+        BTC Dominance: ${btcDom ?? 'N/A'}%
+        Net PNL: $${stats?.netPnl?.toFixed(2) ?? 'N/A'}
+        Win Rate: ${stats?.winRate?.toFixed(1) ?? 'N/A'}%
+        Profit Factor: ${stats?.profitFactor?.toFixed(2) ?? 'N/A'}x
+        Sharpe Ratio: ${stats?.sharpe?.toFixed(2) ?? 'N/A'}
+        Max Drawdown: $${stats?.maxDrawdown?.toFixed(2) ?? 'N/A'}
+        Balance estimado: $${balance ?? '25,430.50'}
+      `
 
-      const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Actúa como un analista cuantitativo institucional de crypto. 
+      const result = await InvokeLLM({
+        prompt: `Actúa como un analista cuantitativo institucional de crypto.
         Analiza los siguientes datos de mercado y portfolio:
         ${context}
-        
+
         Genera un análisis ejecutivo conciso en formato terminal/texto plano con:
         1. Interpretación del Fear & Greed y qué implica para el mercado
         2. Implicaciones de la dominancia de BTC
         3. Evaluación del performance del portfolio
         4. 3-4 recomendaciones cuantitativas concretas y accionables
         5. Evaluación de riesgo
-        
+
         Usa formato de terminal con secciones en MAYÚSCULAS, separadores con "=" y "→" para puntos clave.
         Sé directo, técnico y conciso. Máximo 40 líneas. Sin disclaimers largos.`,
-      });
+      })
 
-      setAnalysis(typeof result === "string" ? result : JSON.stringify(result));
-      setUsedMock(false);
+      setAnalysis(typeof result === 'string' ? result : JSON.stringify(result))
+      setUsedMock(false)
     } catch (err) {
-      // Fallback to mock if LLM fails
-      setAnalysis(MOCK_ANALYSIS);
-      setUsedMock(true);
+      setAnalysis(MOCK_ANALYSIS)
+      setUsedMock(true)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Terminal className="w-4 h-4 text-muted-foreground" />
@@ -107,11 +113,10 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
           ) : (
             <Sparkles className="w-3 h-3" />
           )}
-          {loading ? "Analizando..." : "Generar Análisis"}
+          {loading ? 'Analizando...' : 'Generar Análisis'}
         </button>
       </div>
 
-      {/* Output area */}
       <AnimatePresence mode="wait">
         {!analysis && !loading && (
           <div className="h-28 flex items-center justify-center border border-dashed border-border rounded-lg">
@@ -130,7 +135,7 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
             className="h-28 flex flex-col items-center justify-center gap-3"
           >
             <div className="flex gap-1">
-              {[0, 1, 2].map(i => (
+              {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
                   className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40"
@@ -161,5 +166,5 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
         )}
       </AnimatePresence>
     </div>
-  );
+  )
 }

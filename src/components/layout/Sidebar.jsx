@@ -1,6 +1,14 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+/**
+ * Sidebar.jsx
+ *
+ * Changes from Base44 version:
+ *  - import { base44 } → import { logout } from @/api/auth
+ *  - base44.auth.logout() → logout()
+ *  All UI logic is unchanged.
+ */
+import React from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Activity,
@@ -11,24 +19,24 @@ import {
   ChevronRight,
   Settings,
   LogOut,
-} from "lucide-react";
-import { base44 } from "@/api/base44Client";
+} from 'lucide-react'
+import { logout } from '@/api/auth'
 
 const NAV_ITEMS = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/market-pulse", label: "Market Pulse", icon: Activity },
-  { path: "/news", label: "News & Signals", icon: Newspaper },
-  { path: "/screener", label: "Screener", icon: BarChart3 },
-];
+  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/market-pulse', label: 'Market Pulse', icon: Activity },
+  { path: '/news', label: 'News & Signals', icon: Newspaper },
+  { path: '/screener', label: 'Screener', icon: BarChart3 },
+]
 
 export default function Sidebar({ collapsed, onToggle, user }) {
-  const location = useLocation();
+  const location = useLocation()
 
   return (
     <motion.aside
       initial={false}
       animate={{ width: collapsed ? 64 : 240 }}
-      transition={{ duration: 0.2, ease: "easeInOut" }}
+      transition={{ duration: 0.2, ease: 'easeInOut' }}
       className="fixed left-0 top-0 bottom-0 z-40 flex flex-col bg-sidebar border-r border-sidebar-border"
     >
       {/* Brand */}
@@ -70,7 +78,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-[9px] font-mono uppercase tracking-widest text-green">
-              {user.role === "admin" ? "ADMIN" : "USER"}
+              {user.role === 'admin' ? 'ADMIN' : 'USER'}
             </span>
           </div>
         </div>
@@ -79,16 +87,16 @@ export default function Sidebar({ collapsed, onToggle, user }) {
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1">
         {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.path;
-          const Icon = item.icon;
+          const isActive = location.pathname === item.path
+          const Icon = item.icon
           return (
             <Link
               key={item.path}
               to={item.path}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider transition-all duration-150
                 ${isActive
-                  ? "bg-sidebar-accent text-foreground border border-border"
-                  : "text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50 border border-transparent"
+                  ? 'bg-sidebar-accent text-foreground border border-border'
+                  : 'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50 border border-transparent'
                 }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -96,7 +104,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
                 {!collapsed && (
                   <motion.span
                     initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
+                    animate={{ opacity: 1, width: 'auto' }}
                     exit={{ opacity: 0, width: 0 }}
                     className="whitespace-nowrap overflow-hidden"
                   >
@@ -105,7 +113,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
                 )}
               </AnimatePresence>
             </Link>
-          );
+          )
         })}
       </nav>
 
@@ -119,7 +127,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
           {!collapsed && <span>Ajustes</span>}
         </Link>
         <button
-          onClick={() => base44.auth.logout()}
+          onClick={() => logout()}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-red hover:bg-red/5 transition-all"
         >
           <LogOut className="w-4 h-4 shrink-0" />
@@ -132,5 +140,5 @@ export default function Sidebar({ collapsed, onToggle, user }) {
         )}
       </div>
     </motion.aside>
-  );
+  )
 }

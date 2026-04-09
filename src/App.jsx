@@ -1,25 +1,32 @@
-import { Toaster } from "@/components/ui/toaster"
-import { Toaster as SonnerToaster } from "sonner"
+/**
+ * App.jsx
+ *
+ * Changes from Base44 version:
+ *  - Removed import of queryClientInstance from @base44 — now lives in @/lib/query-client
+ *  - AuthProvider and useAuth now use the generic JWT-based implementation
+ *  - Loading state and auth error handling are unchanged in behaviour
+ *  All routing is unchanged.
+ */
+import { Toaster } from '@/components/ui/toaster'
+import { Toaster as SonnerToaster } from 'sonner'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
+import PageNotFound from './lib/PageNotFound'
+import { AuthProvider, useAuth } from '@/lib/AuthContext'
+import UserNotRegisteredError from '@/components/UserNotRegisteredError'
 
-// Layout
-import AppLayout from '@/components/layout/AppLayout';
-import { PeriodProvider } from '@/lib/PeriodContext';
+import AppLayout from '@/components/layout/AppLayout'
+import { PeriodProvider } from '@/lib/PeriodContext'
 
-// Pages
-import Dashboard from '@/pages/Dashboard';
-import MarketPulse from '@/pages/MarketPulse';
-import NewsSignals from '@/pages/NewsSignals';
-import Screener from '@/pages/Screener';
-import Settings from '@/pages/Settings';
+import Dashboard from '@/pages/Dashboard'
+import MarketPulse from '@/pages/MarketPulse'
+import NewsSignals from '@/pages/NewsSignals'
+import Screener from '@/pages/Screener'
+import Settings from '@/pages/Settings'
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth()
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -35,15 +42,15 @@ const AuthenticatedApp = () => {
           Iniciando sesión
         </div>
       </div>
-    );
+    )
   }
 
   if (authError) {
     if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
+      return <UserNotRegisteredError />
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
+      navigateToLogin()
+      return null
     }
   }
 
@@ -58,28 +65,28 @@ const AuthenticatedApp = () => {
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
-  );
-};
+  )
+}
 
 function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <PeriodProvider>
-        <Router>
-          <AuthenticatedApp />
-        </Router>
+          <Router>
+            <AuthenticatedApp />
+          </Router>
         </PeriodProvider>
         <Toaster />
         <SonnerToaster
           position="bottom-right"
           toastOptions={{
             style: {
-              background: "hsl(0 0% 6.7%)",
-              border: "1px solid hsl(0 0% 14%)",
-              color: "hsl(0 0% 100%)",
-              fontFamily: "IBM Plex Mono, monospace",
-              fontSize: "12px",
+              background: 'hsl(0 0% 6.7%)',
+              border: '1px solid hsl(0 0% 14%)',
+              color: 'hsl(0 0% 100%)',
+              fontFamily: 'IBM Plex Mono, monospace',
+              fontSize: '12px',
             },
           }}
         />
