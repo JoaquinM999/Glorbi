@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import { base44 } from "@/api/base44Client";
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [user, setUser] = useState(null);
 
+  // Cargamos un usuario falso temporalmente para que la interfaz no tire error.
+  // Cuando armemos el backend en Python, conectaremos esto de verdad.
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    setUser({ full_name: "Admin", email: "admin@glorbi.com" });
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground font-mono">
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}

@@ -10,7 +10,7 @@
  *  All other UI logic is unchanged.
  */
 import React, { useState, useEffect } from 'react'
-import { getMe } from '@/api/auth'
+import { getMe } from '@/api/Auth.js'
 import { UserSettings } from '@/api/entities'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
