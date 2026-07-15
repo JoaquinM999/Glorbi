@@ -47,6 +47,7 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
   const [usedMock, setUsedMock] = useState(false)
+  const [notConfigured, setNotConfigured] = useState(false)
 
   const generate = async () => {
     setLoading(true)
@@ -81,9 +82,18 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
 
       setAnalysis(typeof result === 'string' ? result : JSON.stringify(result))
       setUsedMock(false)
+      setNotConfigured(false)
     } catch (err) {
-      setAnalysis(MOCK_ANALYSIS)
-      setUsedMock(true)
+      // Si la IA no está configurada en el backend, mostramos un mensaje claro
+      // en vez de un mock confuso. Esta función es opcional — el resto de la
+      // app funciona perfectamente sin ella.
+      if (err.response?.data?.error === 'ai_not_configured') {
+        setNotConfigured(true)
+        setAnalysis(null)
+      } else {
+        setAnalysis(MOCK_ANALYSIS)
+        setUsedMock(true)
+      }
     } finally {
       setLoading(false)
     }
@@ -118,7 +128,18 @@ export default function AIExecutiveSummary({ stats, fgValue, btcDom, balance }) 
       </div>
 
       <AnimatePresence mode="wait">
-        {!analysis && !loading && (
+        {notConfigured && !loading && (
+          <div className="h-28 flex flex-col items-center justify-center gap-2 border border-dashed border-border rounded-lg">
+            <span className="text-[11px] font-mono text-muted-foreground/50 text-center px-4">
+              Esta función es opcional y no está configurada.
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground/30 text-center px-4">
+              Agrega ANTHROPIC_API_KEY en server/.env si querés activarla — el resto de Glorbi funciona sin esto.
+            </span>
+          </div>
+        )}
+
+        {!analysis && !loading && !notConfigured && (
           <div className="h-28 flex items-center justify-center border border-dashed border-border rounded-lg">
             <span className="text-[11px] font-mono text-muted-foreground/40">
               Presiona "Generar Análisis" para obtener un resumen IA de tu portfolio

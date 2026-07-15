@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
+/**
+ * AppLayout.jsx
+ *
+ * Changes from Base44 version:
+ *  - Removed direct call to base44.auth.me() — user now comes from useAuth()
+ *  - No SDK import needed
+ */
+import React, { useState } from 'react'
+import { Outlet } from 'react-router-dom'
+import Sidebar from './Sidebar'
+import { useAuth } from '@/lib/AuthContext'
 
 export default function AppLayout() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [user, setUser] = useState(null);
-
-  // Cargamos un usuario falso temporalmente para que la interfaz no tire error.
-  // Cuando armemos el backend en Python, conectaremos esto de verdad.
-  useEffect(() => {
-    setUser({ full_name: "Admin", email: "admin@glorbi.com" });
-  }, []);
+  const [collapsed, setCollapsed] = useState(false)
+  const { user } = useAuth()
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono">
+    <div className="min-h-screen bg-background">
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
@@ -52,5 +54,5 @@ export default function AppLayout() {
         </div>
       </main>
     </div>
-  );
+  )
 }

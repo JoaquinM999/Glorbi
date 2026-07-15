@@ -1,23 +1,22 @@
 /**
  * Settings.jsx
  *
- * Changes from Base44 version:
- *  - import { base44 } → import { getMe } from @/api/auth + import { UserSettings } from @/api/entities
- *  - base44.auth.me() → getMe()
- *  - base44.entities.UserSettings.filter(...) → UserSettings.filter(...)
- *  - base44.entities.UserSettings.update(...) → UserSettings.update(...)
- *  - base44.entities.UserSettings.create(...) → UserSettings.create(...)
- *  All other UI logic is unchanged.
+ * Cambios respecto a la versión anterior:
+ *  - Nuevo botón "Probar conexión" que llama a POST /api/binance/test
+ *    ANTES de guardar, para validar que las keys funcionan y evitar
+ *    que el usuario guarde credenciales inválidas sin saberlo.
+ *  - Muestra el balance de la cuenta si la conexión es exitosa.
  */
 import React, { useState, useEffect } from 'react'
-import { getMe } from '@/api/Auth.js'
+import { getMe } from '@/api/auth'
 import { UserSettings } from '@/api/entities'
+import apiClient from '@/api/apiClient'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import SectionHeader from '@/components/ui/SectionHeader'
-import { Save, Eye, EyeOff, Shield } from 'lucide-react'
+import { Save, Eye, EyeOff, Shield, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function Settings() {
@@ -26,6 +25,9 @@ export default function Settings() {
   const [showSecret, setShowSecret] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiSecret, setApiSecret] = useState('')
+
+  // Estado de la prueba de conexión: null | 'testing' | { valid, account?, message? }
+  const [testResult, setTestResult] = useState(null)
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['userSettings'],
@@ -43,6 +45,31 @@ export default function Settings() {
     }
   }, [settings])
 
+  // Resetear el resultado del test si el usuario edita las keys
+  useEffect(() => {
+    setTestResult(null)
+  }, [apiKey, apiSecret])
+
+  const testMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await apiClient.post('/api/binance/test', {
+        binance_api_key: apiKey,
+        binance_api_secret: apiSecret,
+      })
+      return data
+    },
+    onMutate: () => setTestResult('testing'),
+    onSuccess: (data) => {
+      setTestResult(data)
+      if (data.valid) toast.success('Conexión exitosa con Binance Futures')
+    },
+    onError: (err) => {
+      const message = err.response?.data?.message || 'No se pudo validar la conexión'
+      setTestResult({ valid: false, message })
+      toast.error(message)
+    },
+  })
+
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       if (settings) {
@@ -53,9 +80,22 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userSettings'] })
+      // También invalida los datos de Binance para que el Dashboard los recargue
+      queryClient.invalidateQueries({ queryKey: ['binance'] })
       toast.success('Claves guardadas correctamente')
     },
+    onError: () => {
+      toast.error('Error al guardar las claves')
+    },
   })
+
+  const handleTest = () => {
+    if (!apiKey || !apiSecret) {
+      toast.error('Ingresa API Key y API Secret primero')
+      return
+    }
+    testMutation.mutate()
+  }
 
   const handleSave = () => {
     saveMutation.mutate({
@@ -105,6 +145,7 @@ export default function Settings() {
                 size="icon"
                 onClick={() => setShowKey(!showKey)}
                 className="shrink-0 border-border"
+                type="button"
               >
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
@@ -128,6 +169,7 @@ export default function Settings() {
                 size="icon"
                 onClick={() => setShowSecret(!showSecret)}
                 className="shrink-0 border-border"
+                type="button"
               >
                 {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
@@ -135,7 +177,36 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
+        {/* Botón de prueba de conexión */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            disabled={testMutation.isPending || !apiKey || !apiSecret}
+            className="border-border font-mono text-xs uppercase tracking-wider"
+            type="button"
+          >
+            {testMutation.isPending
+              ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+              : null}
+            Probar conexión
+          </Button>
+
+          {testResult && testResult !== 'testing' && (
+            <span className={`inline-flex items-center gap-1.5 text-[11px] font-mono ${
+              testResult.valid ? 'text-green' : 'text-red'
+            }`}>
+              {testResult.valid
+                ? <CheckCircle2 className="w-3.5 h-3.5" />
+                : <XCircle className="w-3.5 h-3.5" />}
+              {testResult.valid
+                ? `Conectado — Balance: $${testResult.account?.totalWalletBalance?.toLocaleString('en', { maximumFractionDigits: 2 }) ?? '0.00'}`
+                : testResult.message}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${apiKey && apiSecret ? 'bg-green' : 'bg-muted-foreground/30'}`} />
             <span className="text-[10px] font-mono text-muted-foreground">
@@ -155,8 +226,20 @@ export default function Settings() {
 
       <div className="bg-yellow/5 border border-yellow/15 rounded-lg p-4">
         <p className="text-[11px] font-mono text-yellow/80 leading-relaxed">
-          <strong>Importante:</strong> Asegúrate de que tus claves tengan únicamente permisos de lectura.
+          <strong>Importante:</strong> Asegúrate de que tus claves tengan únicamente permisos de lectura
+          (Enable Reading). No actives "Enable Futures" para trading ni "Enable Withdrawals".
           Glorbi es una plataforma de solo lectura — nunca ejecuta operaciones ni retiros en tu cuenta.
+        </p>
+      </div>
+
+      <div className="bg-secondary/50 border border-border rounded-lg p-4">
+        <p className="text-[11px] font-mono text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">Cómo generar tus keys:</strong><br />
+          1. Ve a Binance → Perfil → API Management<br />
+          2. Crea una nueva API key<br />
+          3. En permisos, activa solo <strong>"Enable Reading"</strong><br />
+          4. Restringe el acceso por IP si es posible (opcional pero recomendado)<br />
+          5. Copia la Key y el Secret aquí — el Secret solo se muestra una vez en Binance
         </p>
       </div>
     </div>

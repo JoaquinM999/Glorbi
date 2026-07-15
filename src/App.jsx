@@ -1,34 +1,43 @@
 /**
- * App.jsx
+ * App.jsx — FIXED
  *
- * Changes from Base44 version:
- *  - Removed import of queryClientInstance from @base44 — now lives in @/lib/query-client
- *  - AuthProvider and useAuth now use the generic JWT-based implementation
- *  - Loading state and auth error handling are unchanged in behaviour
- *  All routing is unchanged.
+ * Changes:
+ * 1. Added a /login route rendered outside protected area
+ * 2. Replaced the imperative navigateToLogin() call with a <RequireAuth>
+ *    component that uses React Router's declarative <Navigate> — this is
+ *    the correct pattern and stops the infinite redirect loop completely.
+ * 3. Removed authError from AuthContext dependency (context only has state now)
+ * 4. Loading screen shown while auth state is being determined
  */
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as SonnerToaster } from 'sonner'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
-import PageNotFound from './lib/PageNotFound'
+import { BrowserRouter as Router, Route, Routes, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/lib/AuthContext'
-import UserNotRegisteredError from '@/components/UserNotRegisteredError'
+import { PeriodProvider } from '@/lib/PeriodContext'
+import PageNotFound from './lib/PageNotFound'
 
 import AppLayout from '@/components/layout/AppLayout'
-import { PeriodProvider } from '@/lib/PeriodContext'
-
+import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import MarketPulse from '@/pages/MarketPulse'
 import NewsSignals from '@/pages/NewsSignals'
 import Screener from '@/pages/Screener'
 import Settings from '@/pages/Settings'
 
-const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth()
+/**
+ * Wraps protected routes. If the user is not authenticated, redirects to /login
+ * and remembers where they were trying to go (state.from).
+ *
+ * Using <Navigate> here is declarative and does NOT cause infinite re-renders —
+ * React Router handles it in one pass without re-mounting the component tree.
+ */
+function RequireAuth() {
+  const { isAuthenticated, isLoadingAuth } = useAuth()
+  const location = useLocation()
 
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background gap-6">
         <div className="text-4xl font-mono font-medium text-foreground tracking-tighter animate-pulse">
@@ -45,27 +54,27 @@ const AuthenticatedApp = () => {
     )
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin()
-      return null
-    }
+  if (!isAuthenticated) {
+    // Pass the current location so Login can redirect back after login
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/market-pulse" element={<MarketPulse />} />
-        <Route path="/news" element={<NewsSignals />} />
-        <Route path="/screener" element={<Screener />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<PageNotFound />} />
-    </Routes>
-  )
+  return <Outlet />
+}
+
+/**
+ * If the user is already logged in and visits /login, redirect to dashboard.
+ */
+function PublicOnly() {
+  const { isAuthenticated, isLoadingAuth } = useAuth()
+
+  if (isLoadingAuth) return null
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
+
+  return <Outlet />
 }
 
 function App() {
@@ -74,7 +83,25 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <PeriodProvider>
           <Router>
-            <AuthenticatedApp />
+            <Routes>
+              {/* Public route — only accessible when NOT logged in */}
+              <Route element={<PublicOnly />}>
+                <Route path="/login" element={<Login />} />
+              </Route>
+
+              {/* Protected routes — redirect to /login if not authenticated */}
+              <Route element={<RequireAuth />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/market-pulse" element={<MarketPulse />} />
+                  <Route path="/news" element={<NewsSignals />} />
+                  <Route path="/screener" element={<Screener />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+              </Route>
+
+              <Route path="*" element={<PageNotFound />} />
+            </Routes>
           </Router>
         </PeriodProvider>
         <Toaster />

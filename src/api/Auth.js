@@ -1,29 +1,35 @@
 /**
  * auth.js
  *
- * Replaces base44.auth.me(), base44.auth.logout(),
- * and base44.auth.redirectToLogin().
+ * Replaces base44.auth.* methods with standard JWT calls to your own backend.
  *
- * Wire these functions to your own backend endpoints.
- * Expected backend routes (adjust paths as needed):
- *   POST /auth/login   → { access_token, user }
- *   GET  /auth/me      → { id, email, full_name, role }
- *   POST /auth/logout  → 200 OK
+ * Backend routes expected:
+ *   POST /auth/register → { access_token, user }
+ *   POST /auth/login    → { access_token, user }
+ *   GET  /auth/me       → { id, email, full_name, role, ... }
+ *   POST /auth/logout   → 200 OK
  */
-import apiClient from './Apiclient'
+import apiClient from './apiClient'
 
 /**
- * Fetch the currently authenticated user.
- * Throws if the token is invalid or expired (interceptor handles 401).
+ * Register a new user.
+ * Stores the JWT and returns the user object.
  */
-export async function getMe() {
-  const { data } = await apiClient.get('/auth/me')
-  return data
+export async function register(email, password, fullName) {
+  const { data } = await apiClient.post('/auth/register', {
+    email,
+    password,
+    full_name: fullName || undefined,
+  })
+  if (data.access_token) {
+    localStorage.setItem('access_token', data.access_token)
+  }
+  return data.user
 }
 
 /**
  * Login with email + password.
- * Stores the returned JWT in localStorage and returns the user object.
+ * Stores the JWT and returns the user object.
  */
 export async function login(email, password) {
   const { data } = await apiClient.post('/auth/login', { email, password })
@@ -34,34 +40,30 @@ export async function login(email, password) {
 }
 
 /**
- * Log out: remove local token and optionally notify the backend.
+ * Fetch the currently authenticated user from the backend.
+ * Throws on 401/403 — the Axios interceptor in apiClient will clear the token.
  */
-export async function logout(redirectUrl) {
+export async function getMe() {
+  const { data } = await apiClient.get('/auth/me')
+  return data
+}
+
+/**
+ * Log out: remove local token and notify the backend.
+ * The redirect is handled by the caller (AuthContext or Sidebar).
+ */
+export async function logout() {
   localStorage.removeItem('access_token')
   try {
     await apiClient.post('/auth/logout')
   } catch {
-    // Best-effort — ignore network errors on logout
+    // Best-effort — ignore errors on logout
   }
-  if (redirectUrl) {
-    window.location.href = redirectUrl
-  } else {
-    window.location.href = '/login'
-  }
-}
-
-/**
- * Redirect the user to the login page.
- * Stores the current URL so you can redirect back after login.
- */
-export function redirectToLogin(returnUrl) {
-  const dest = returnUrl || window.location.href
-  window.location.href = `/login?returnUrl=${encodeURIComponent(dest)}`
+  window.location.href = '/login'
 }
 
 /**
  * Returns true if a JWT token exists in localStorage.
- * Does NOT validate expiry — that's the backend's job via /auth/me.
  */
 export function hasToken() {
   return Boolean(localStorage.getItem('access_token'))

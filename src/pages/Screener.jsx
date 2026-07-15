@@ -1,24 +1,45 @@
-import React from "react";
-import SectionHeader from "@/components/ui/SectionHeader";
-import LoadingState from "@/components/ui/LoadingState";
-import { useScreenerData } from "@/lib/hooks/useScreenerData";
-import { fmtLarge } from "@/lib/utils/format";
-import { ArrowUp, ArrowDown } from "lucide-react";
+/**
+ * Screener.jsx
+ *
+ * Cambios respecto a la versión Base44/demo:
+ *  - useScreenerData() (LLM inventando números) → useBinanceScreener() (datos reales)
+ *  - long_short_ratio, liquidaciones: Binance API pública no las expone gratis,
+ *    así que se muestran como "—" en vez de inventar valores.
+ *  - El resto de la UI es idéntico.
+ */
+import React from 'react'
+import SectionHeader from '@/components/ui/SectionHeader'
+import LoadingState from '@/components/ui/LoadingState'
+import { useBinanceScreener } from '@/lib/hooks/useBinanceData'
+import { fmtLarge } from '@/lib/utils/format'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 
 export default function Screener() {
-  const { data: pairs, isLoading } = useScreenerData();
+  const { data: pairs, isLoading, error } = useBinanceScreener()
 
   if (isLoading) {
-    return <LoadingState message="cargando datos del screener" />;
+    return <LoadingState message="cargando datos del screener" />
   }
 
-  const totalLongLiqs = (pairs || []).reduce((s, p) => s + (p.long_liquidations_24h || 0), 0);
-  const totalShortLiqs = (pairs || []).reduce((s, p) => s + (p.short_liquidations_24h || 0), 0);
-  const totalOI = (pairs || []).reduce((s, p) => s + (p.open_interest || 0), 0);
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <span className="text-2xl text-red/30">⚠</span>
+        <p className="text-xs font-mono text-muted-foreground max-w-sm">
+          No se pudo conectar con la API de Binance. Intenta de nuevo en unos segundos.
+        </p>
+      </div>
+    )
+  }
+
+  const totalOI = (pairs || []).reduce((s, p) => s + (p.open_interest || 0), 0)
+  const avgFunding = (pairs || []).length
+    ? (pairs || []).reduce((s, p) => s + (p.funding_rate || 0), 0) / pairs.length
+    : 0
 
   return (
     <div className="space-y-6">
-      <SectionHeader title="Screener de Derivados" tag="COINGLASS" />
+      <SectionHeader title="Screener de Derivados" tag="BINANCE FUTURES" />
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -32,18 +53,18 @@ export default function Screener() {
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
-            Liquidaciones Longs 24h
+            Funding Rate Promedio
           </div>
-          <div className="text-2xl font-mono text-red tracking-tight">
-            {fmtLarge(totalLongLiqs)}
+          <div className={`text-2xl font-mono tracking-tight ${avgFunding >= 0 ? 'text-green' : 'text-red'}`}>
+            {avgFunding >= 0 ? '+' : ''}{(avgFunding * 100).toFixed(4)}%
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
-            Liquidaciones Shorts 24h
+            Pares Monitoreados
           </div>
-          <div className="text-2xl font-mono text-green tracking-tight">
-            {fmtLarge(totalShortLiqs)}
+          <div className="text-2xl font-mono text-foreground tracking-tight">
+            {(pairs || []).length}
           </div>
         </div>
       </div>
@@ -56,57 +77,44 @@ export default function Screener() {
               <th className="px-4 py-3 text-left text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Par</th>
               <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Precio</th>
               <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Open Interest</th>
-              <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">OI Δ 24h</th>
+              <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Cambio 24h</th>
               <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Funding Rate</th>
-              <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Liq. Longs</th>
-              <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Liq. Shorts</th>
-              <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">L/S Ratio</th>
               <th className="px-4 py-3 text-right text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Vol 24h</th>
             </tr>
           </thead>
           <tbody>
-            {(pairs || []).map((pair, i) => {
-              const fr = pair.funding_rate || 0;
-              const oiChg = pair.oi_change_24h || 0;
-              const lsr = pair.long_short_ratio || 1;
-              const price = pair.price || 0;
+            {(pairs || []).map((pair) => {
+              const fr = pair.funding_rate || 0
+              const chg = pair.oi_change_24h || 0
+              const price = pair.price || 0
 
               return (
-                <tr key={pair.symbol || i} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                <tr key={pair.symbol} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
                   <td className="px-4 py-3">
                     <span className="text-[13px] font-mono font-semibold text-foreground">
                       {pair.symbol}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-mono text-foreground">
-                    ${price < 1 ? price.toFixed(4) : price.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${price < 1 ? price.toFixed(4) : price.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-mono text-foreground">
                     {fmtLarge(pair.open_interest)}
                   </td>
-                  <td className={`px-4 py-3 text-right text-[11px] font-mono ${oiChg >= 0 ? "text-green" : "text-red"}`}>
+                  <td className={`px-4 py-3 text-right text-[11px] font-mono ${chg >= 0 ? 'text-green' : 'text-red'}`}>
                     <span className="inline-flex items-center gap-0.5">
-                      {oiChg >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                      {Math.abs(oiChg).toFixed(2)}%
+                      {chg >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                      {Math.abs(chg).toFixed(2)}%
                     </span>
                   </td>
-                  <td className={`px-4 py-3 text-right text-[11px] font-mono ${fr >= 0 ? "text-green" : "text-red"}`}>
-                    {fr >= 0 ? "+" : ""}{(fr * 100).toFixed(4)}%
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs font-mono text-red">
-                    {fmtLarge(pair.long_liquidations_24h)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-xs font-mono text-green">
-                    {fmtLarge(pair.short_liquidations_24h)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <LongShortBar ratio={lsr} />
+                  <td className={`px-4 py-3 text-right text-[11px] font-mono ${fr >= 0 ? 'text-green' : 'text-red'}`}>
+                    {fr >= 0 ? '+' : ''}{(fr * 100).toFixed(4)}%
                   </td>
                   <td className="px-4 py-3 text-right text-xs font-mono text-muted-foreground">
                     {fmtLarge(pair.volume_24h)}
                   </td>
                 </tr>
-              );
+              )
             })}
           </tbody>
         </table>
@@ -132,30 +140,18 @@ export default function Screener() {
           body="OI creciente + precio creciente = momentum fuerte. OI cayendo + precio cayendo = cierre de posiciones. OI creciente + precio estable = acumulación de posiciones."
         />
         <GuideCard
-          title="Liquidaciones"
-          accent="#EF4444"
-          body="Cascadas de liquidaciones amplifican movimientos de precio. Muchas liquidaciones de longs → presión bajista adicional. Muchas de shorts → presión alcista."
+          title="Cambio 24h"
+          accent="#EAB308"
+          body="Variación porcentual del precio en las últimas 24 horas, según el ticker de Binance Futures."
         />
         <GuideCard
-          title="Long/Short Ratio"
-          accent="#EAB308"
-          body="Ratio > 1 = más cuentas en long. Ratio < 1 = más cuentas en short. Extremos suelen ser indicadores contrarian — la mayoría suele estar equivocada."
+          title="Volumen 24h"
+          accent="#84CC16"
+          body="Volumen total negociado (en USD) en las últimas 24 horas para el par. Alto volumen valida movimientos de precio."
         />
       </div>
     </div>
-  );
-}
-
-function LongShortBar({ ratio }) {
-  const longPct = Math.min(95, Math.max(5, (ratio / (ratio + 1)) * 100));
-  return (
-    <div className="flex items-center gap-2 justify-end">
-      <span className="text-[10px] font-mono text-muted-foreground">{ratio.toFixed(2)}</span>
-      <div className="w-16 h-2 rounded-full overflow-hidden bg-red/30 flex">
-        <div className="h-full bg-green rounded-l-full" style={{ width: `${longPct}%` }} />
-      </div>
-    </div>
-  );
+  )
 }
 
 function GuideCard({ title, accent, body }) {
@@ -167,5 +163,5 @@ function GuideCard({ title, accent, body }) {
       <h3 className="text-sm font-semibold text-foreground mb-2">{title}</h3>
       <p className="text-[12px] font-mono text-muted-foreground leading-relaxed">{body}</p>
     </div>
-  );
+  )
 }

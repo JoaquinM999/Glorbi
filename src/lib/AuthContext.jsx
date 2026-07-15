@@ -1,20 +1,17 @@
 /**
- * AuthContext.jsx
+ * AuthContext.jsx — FIXED
  *
- * Replaces the Base44-coupled AuthContext with a standard JWT flow.
+ * Root cause of infinite loop (now removed):
+ *   navigateToLogin() was called during component render. Since /login had no
+ *   route, the app matched PageNotFound → same authError → navigateToLogin()
+ *   → redirect → reload → same cycle, URL growing on every pass.
  *
- * What changed:
- *  - Removed @base44/sdk imports
- *  - Removed app-params.js bootstrap
- *  - getMe() / logout() / redirectToLogin() now use src/api/auth.js
- *  - No more Base44 "app public settings" or "auth_required" error types
- *  - Auth state is derived purely from the presence of a valid JWT
- *
- * The <AuthProvider> still exposes the same shape so all consumer
- * components (useAuth, Sidebar logout button, etc.) work without changes.
+ * Fix: this context only manages STATE. Navigation is handled declaratively
+ * by <RequireAuth> in App.jsx using React Router's <Navigate> component,
+ * which does not cause re-renders or loops.
  */
 import React, { createContext, useState, useContext, useEffect } from 'react'
-import { getMe, logout as apiLogout, redirectToLogin as apiRedirectToLogin, hasToken } from '@/api/auth'
+import { getMe, logout as apiLogout, hasToken } from '@/api/auth'
 
 const AuthContext = createContext()
 
@@ -22,9 +19,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoadingAuth, setIsLoadingAuth] = useState(true)
-  // Kept for API compatibility with existing consumers
-  const [isLoadingPublicSettings] = useState(false)
-  const [authError, setAuthError] = useState(null)
 
   useEffect(() => {
     checkUserAuth()
@@ -32,40 +26,36 @@ export const AuthProvider = ({ children }) => {
 
   const checkUserAuth = async () => {
     if (!hasToken()) {
-      setIsLoadingAuth(false)
       setIsAuthenticated(false)
-      setAuthError({ type: 'auth_required', message: 'No token found' })
+      setUser(null)
+      setIsLoadingAuth(false)
       return
     }
-
     try {
       setIsLoadingAuth(true)
       const currentUser = await getMe()
       setUser(currentUser)
       setIsAuthenticated(true)
-      setAuthError(null)
-    } catch (error) {
-      console.error('Auth check failed:', error)
-      setIsAuthenticated(false)
+    } catch (err) {
+      console.error('Auth check failed:', err)
       setUser(null)
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        setAuthError({ type: 'auth_required', message: 'Session expired' })
-      } else {
-        setAuthError({ type: 'unknown', message: error.message || 'Auth check failed' })
+      setIsAuthenticated(false)
+      // Clear bad token so we don't retry on every visit
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem('access_token')
       }
     } finally {
       setIsLoadingAuth(false)
     }
   }
 
-  const logout = (shouldRedirect = true) => {
+  /** Re-run auth check after a successful login. */
+  const refreshAuth = () => checkUserAuth()
+
+  const logout = () => {
     setUser(null)
     setIsAuthenticated(false)
-    apiLogout(shouldRedirect ? window.location.href : undefined)
-  }
-
-  const navigateToLogin = () => {
-    apiRedirectToLogin(window.location.href)
+    apiLogout()
   }
 
   return (
@@ -74,12 +64,10 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated,
         isLoadingAuth,
-        isLoadingPublicSettings,
-        authError,
+        isLoadingPublicSettings: false,
         appPublicSettings: null,
         logout,
-        navigateToLogin,
-        checkAppState: checkUserAuth,
+        refreshAuth,
       }}
     >
       {children}
