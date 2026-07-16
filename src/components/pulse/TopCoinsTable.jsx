@@ -1,4 +1,13 @@
+/**
+ * TopCoinsTable.jsx
+ *
+ * FIX: las flechas ▲/▼ (caracteres Unicode) no alinean bien verticalmente
+ * con el texto en fuentes monoespaciadas — quedan flotando arriba o abajo
+ * del número según el navegador/OS. Se reemplazan por iconos de lucide-react
+ * dentro de un contenedor flex, igual que ya se corrigió en Screener.jsx.
+ */
 import React from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 
 export default function TopCoinsTable({ coins, isLoading }) {
   if (isLoading) {
@@ -41,10 +50,16 @@ export default function TopCoinsTable({ coins, isLoading }) {
                 </td>
                 <td className="px-3 py-2.5 text-right text-xs font-mono text-foreground">{priceStr}</td>
                 <td className={`px-3 py-2.5 text-right text-[11px] font-mono ${chg24 >= 0 ? "text-green" : "text-red"}`}>
-                  {chg24 >= 0 ? "▲" : "▼"}{Math.abs(chg24).toFixed(1)}%
+                  <span className="inline-flex items-center justify-end gap-0.5">
+                    {chg24 >= 0 ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />}
+                    {Math.abs(chg24).toFixed(1)}%
+                  </span>
                 </td>
                 <td className={`px-3 py-2.5 text-right text-[11px] font-mono hidden md:table-cell ${chg7 >= 0 ? "text-green" : "text-red"}`}>
-                  {chg7 >= 0 ? "▲" : "▼"}{Math.abs(chg7).toFixed(1)}%
+                  <span className="inline-flex items-center justify-end gap-0.5">
+                    {chg7 >= 0 ? <ArrowUp className="w-3 h-3 shrink-0" /> : <ArrowDown className="w-3 h-3 shrink-0" />}
+                    {Math.abs(chg7).toFixed(1)}%
+                  </span>
                 </td>
               </tr>
             );

@@ -28,7 +28,7 @@ async function fetchPositions() {
   return data
 }
 
-async function fetchIncome(days = 60) {
+async function fetchIncome(days = 90) {
   const { data } = await apiClient.get(`/api/binance/income?days=${days}`)
   return data
 }
@@ -82,9 +82,9 @@ export function useBinancePositions(enabled = true) {
  * Historial de ingresos agrupado por día + totales.
  * { byDay: [{ date, pnl }], totals: { realizedPnl, fundingFee, commission } }
  *
- * @param {number} days - cuántos días hacia atrás (máx. 90)
+ * @param {number} days - cuántos días hacia atrás (máx. 180)
  */
-export function useBinanceIncome(days = 60, enabled = true) {
+export function useBinanceIncome(days = 90, enabled = true) {
   return useQuery({
     queryKey: ['binance', 'income', days],
     queryFn:  () => fetchIncome(days),

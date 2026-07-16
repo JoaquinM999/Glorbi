@@ -1,9 +1,12 @@
 /**
  * AppLayout.jsx
  *
- * Changes from Base44 version:
- *  - Removed direct call to base44.auth.me() — user now comes from useAuth()
- *  - No SDK import needed
+ * Header rediseñado:
+ *  - Se quitó el símbolo ◈ (queda solo el texto "glorbi", más limpio)
+ *  - Se quitó el badge "LIVE" del extremo derecho
+ *  - El sidebar ya no repite "glorbi" — tiene su propia marca animada
+ *    (ver Sidebar.jsx), así que esta es la única mención de texto "glorbi"
+ *    visible en toda la interfaz.
  */
 import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
@@ -28,8 +31,8 @@ export default function AppLayout() {
         {/* Header bar */}
         <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-8 border-b border-border bg-background/80 backdrop-blur-md">
           <div>
-            <h1 className="text-lg font-mono font-medium text-foreground tracking-tight">
-              ◈ glorbi
+            <h1 className="text-lg font-mono font-semibold text-foreground tracking-tight">
+              glorbi
             </h1>
             <p className="text-[9px] font-mono text-muted-foreground/40 uppercase tracking-[3px]">
               Institutional Portfolio Analytics
@@ -41,10 +44,6 @@ export default function AppLayout() {
                 {user.full_name || user.email}
               </span>
             )}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-green/10 border border-green/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-green animate-blink" />
-              <span className="text-[10px] font-mono text-green tracking-wider">LIVE</span>
-            </div>
           </div>
         </header>
 

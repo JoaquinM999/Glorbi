@@ -73,6 +73,12 @@ async function getAccount(apiKey, apiSecret) {
 /**
  * Posiciones abiertas con PNL flotante.
  * GET /fapi/v2/positionRisk
+ *
+ * NOTA IMPORTANTE: Binance usa "unRealizedProfit" (con R mayúscula) en este
+ * endpoint específico — es una inconsistencia conocida de su API. El endpoint
+ * /fapi/v2/account usa "unrealizedProfit" (minúscula) para los assets. Si no
+ * se lee el campo exacto, parseFloat(undefined) = NaN y el PNL se muestra
+ * siempre como $0.00 aunque la posición tenga ganancia o pérdida real.
  */
 async function getOpenPositions(apiKey, apiSecret) {
   const data = await signedGet('/fapi/v2/positionRisk', {}, apiKey, apiSecret)
@@ -84,7 +90,8 @@ async function getOpenPositions(apiKey, apiSecret) {
       positionAmt:     parseFloat(p.positionAmt),
       entryPrice:      parseFloat(p.entryPrice),
       markPrice:       parseFloat(p.markPrice),
-      unrealizedProfit:parseFloat(p.unrealizedProfit),
+      // ⚠️ Campo correcto: unRealizedProfit (R mayúscula) — NO unrealizedProfit
+      unrealizedProfit:parseFloat(p.unRealizedProfit ?? p.unrealizedProfit ?? 0),
       percentage:      parseFloat(p.percentage || 0),
       leverage:        parseInt(p.leverage || 1),
       liquidationPrice:parseFloat(p.liquidationPrice || 0),
@@ -97,25 +104,29 @@ async function getOpenPositions(apiKey, apiSecret) {
  * Pagina automáticamente para cubrir los últimos `days` días.
  * GET /fapi/v1/income
  */
-async function getIncome(apiKey, apiSecret, days = 60) {
+async function getIncome(apiKey, apiSecret, days = 90) {
   const startTime = Date.now() - days * 24 * 60 * 60 * 1000
   const allIncomes = []
   let currentStart = startTime
+  let pageCount = 0
+  const MAX_PAGES = 50 // seguridad: nunca hacer más de 50k registros (50 × 1000)
 
   // Binance devuelve máx. 1000 registros por llamada — paginamos si hace falta
-  while (true) {
+  while (pageCount < MAX_PAGES) {
     const data = await signedGet(
       '/fapi/v1/income',
       { startTime: currentStart, limit: 1000 },
       apiKey,
       apiSecret
     )
+    pageCount++
     if (!data.length) break
     allIncomes.push(...data)
     if (data.length < 1000) break
     currentStart = data[data.length - 1].time + 1
   }
 
+  console.log(`[binance] income: ${allIncomes.length} registros en ${pageCount} página(s), rango ${days}d`)
   return allIncomes
 }
 

@@ -81,7 +81,7 @@ export default function Dashboard() {
 
   const account   = useBinanceAccount()
   const positions = useBinancePositions()
-  const income    = useBinanceIncome(60)
+  const income    = useBinanceIncome(90)
 
   const noKeys   = account.error?.response?.data?.error === 'no_keys'
   const keyError = !noKeys && account.error

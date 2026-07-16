@@ -82,14 +82,17 @@ router.get('/positions', async (req, res) => {
   }
 })
 
-// ── GET /api/binance/income?days=60 ──────────────────────────────────────────
+// ── GET /api/binance/income?days=180 ──────────────────────────────────────────
+// Máximo aumentado de 90 a 180 días — el tope anterior recortaba el historial
+// cuando el usuario seleccionaba "Todo" en el selector de período si tenía
+// más de 90 días de operaciones.
 // Historial de PNL realizado + funding agrupado por día
 router.get('/income', async (req, res) => {
   const keys = getUserKeys(req.user.email)
   if (!keys) {
     return res.status(400).json({ error: 'no_keys', message: 'Configura tus API keys en Ajustes' })
   }
-  const days = Math.min(parseInt(req.query.days || '60'), 90)
+  const days = Math.min(parseInt(req.query.days || '90'), 180)
   try {
     const raw    = await getIncome(keys.apiKey, keys.apiSecret, days)
     const byDay  = aggregateIncomeByDay(raw)
