@@ -1,7 +1,7 @@
 /**
  * admin.js - API client for admin operations
  */
-import apiClient from './Apiclient'
+import apiClient from './apiClient'
 
 // Usuarios
 export const fetchAllUsers = () => apiClient.get('/api/admin/users')

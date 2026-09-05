@@ -18,7 +18,7 @@
  *
  * This implementation mirrors that interface so call-sites need minimal changes.
  */
-import apiClient from './Apiclient'
+import apiClient from './apiClient'
 
 const USE_BACKEND_PROXY = true // flip to false for direct dev calls
 

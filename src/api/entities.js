@@ -15,7 +15,7 @@
  *   PUT    /api/user-settings/:id                → updated record
  *   DELETE /api/user-settings/:id                → 204
  */
-import apiClient from './Apiclient'
+import apiClient from './apiClient'
 
 /**
  * Factory that builds a CRUD helper for a given resource name.
