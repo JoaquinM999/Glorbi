@@ -20,7 +20,7 @@
  */
 import apiClient from './Apiclient'
 
-const USE_BACKEND_PROXY = false // flip to false for direct dev calls
+const USE_BACKEND_PROXY = true // flip to false for direct dev calls
 
 /**
  * Invoke an LLM via your backend proxy.

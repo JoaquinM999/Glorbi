@@ -63,8 +63,53 @@ export async function logout() {
 }
 
 /**
+ * Consulta si el envío de emails está realmente activo en el backend.
+ * Se usa para no mostrar UI relacionada a verificación de email si de
+ * todos modos no va a llegar a ningún lado (sandbox de Resend sin dominio
+ * propio verificado solo entrega al dueño de la cuenta).
+ */
+export async function getConfigStatus() {
+  const { data } = await apiClient.get('/auth/config-status')
+  return data
+}
+
+/**
  * Returns true if a JWT token exists in localStorage.
  */
 export function hasToken() {
   return Boolean(localStorage.getItem('access_token'))
+}
+
+/**
+ * Pide un link de recuperación de contraseña por email.
+ * Siempre resuelve con éxito (el backend responde genérico por seguridad,
+ * así nadie puede usar esto para averiguar qué emails están registrados).
+ */
+export async function forgotPassword(email) {
+  const { data } = await apiClient.post('/auth/forgot-password', { email })
+  return data
+}
+
+/**
+ * Aplica una nueva contraseña usando el token recibido por email.
+ */
+export async function resetPassword(token, password) {
+  const { data } = await apiClient.post('/auth/reset-password', { token, password })
+  return data
+}
+
+/**
+ * Confirma el email del usuario usando el token recibido por email.
+ */
+export async function verifyEmail(token) {
+  const { data } = await apiClient.get(`/auth/verify-email?token=${encodeURIComponent(token)}`)
+  return data
+}
+
+/**
+ * Reenvía el email de verificación (requiere estar logueado).
+ */
+export async function resendVerification(email) {
+  const { data } = await apiClient.post('/auth/resend-verification', { email })
+  return data
 }

@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Settings,
   LogOut,
+  Shield,
+  X,
 } from 'lucide-react'
 import { logout } from '@/api/auth'
 
@@ -75,22 +77,40 @@ function AnimatedMark({ size = 28 }) {
   )
 }
 
-export default function Sidebar({ collapsed, onToggle, user }) {
+export default function Sidebar({ collapsed, onToggle, user, mobileOpen, onMobileClose }) {
   const location = useLocation()
+
+  // Track window width for framer-motion animations
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768)
+
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const handleNavClick = () => {
+    if (isMobile && onMobileClose) {
+      onMobileClose()
+    }
+  }
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 64 : 240 }}
+      animate={{ 
+        width: isMobile ? 240 : (collapsed ? 64 : 240),
+        x: isMobile ? (mobileOpen ? 0 : '-100%') : 0
+      }}
       transition={{ duration: 0.2, ease: 'easeInOut' }}
-      className="fixed left-0 top-0 bottom-0 z-40 flex flex-col bg-sidebar border-r border-sidebar-border"
+      className="fixed left-0 top-0 bottom-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border"
     >
       {/* Marca — animada, sin texto duplicado */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <AnimatedMark size={collapsed ? 22 : 26} />
+          <AnimatedMark size={isMobile ? 26 : (collapsed ? 22 : 26)} />
           <AnimatePresence mode="wait">
-            {!collapsed && (
+            {(!collapsed || isMobile) && (
               <motion.span
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: 'auto' }}
@@ -102,9 +122,11 @@ export default function Sidebar({ collapsed, onToggle, user }) {
             )}
           </AnimatePresence>
         </div>
+        
+        {/* Desktop Toggle */}
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
+          className="hidden md:block p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />
@@ -112,10 +134,18 @@ export default function Sidebar({ collapsed, onToggle, user }) {
             <ChevronLeft className="w-4 h-4" />
           )}
         </button>
+
+        {/* Mobile Close */}
+        <button
+          onClick={onMobileClose}
+          className="md:hidden p-1.5 rounded-md hover:bg-sidebar-accent transition-colors text-muted-foreground hover:text-foreground"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* User card */}
-      {!collapsed && user && (
+      {(!collapsed || isMobile) && user && (
         <div className="mx-3 mt-3 p-3 rounded-lg bg-secondary border border-border">
           <div className="text-sm font-mono text-foreground truncate">
             {user.full_name || user.email}
@@ -137,6 +167,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider transition-all duration-150
                 ${isActive
                   ? 'bg-sidebar-accent text-foreground border border-border'
@@ -145,7 +176,7 @@ export default function Sidebar({ collapsed, onToggle, user }) {
             >
               <Icon className="w-4 h-4 shrink-0" />
               <AnimatePresence mode="wait">
-                {!collapsed && (
+                {(!collapsed || isMobile) && (
                   <motion.span
                     initial={{ opacity: 0, width: 0 }}
                     animate={{ opacity: 1, width: 'auto' }}
@@ -163,21 +194,35 @@ export default function Sidebar({ collapsed, onToggle, user }) {
 
       {/* Footer */}
       <div className="px-2 pb-4 space-y-1">
+        {user?.role === 'admin' && (
+          <Link
+            to="/admin"
+            onClick={handleNavClick}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider transition-all border border-transparent ${location.pathname === '/admin' ? 'bg-sidebar-accent text-foreground border-border' : 'text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
+          >
+            <Shield className="w-4 h-4 shrink-0" />
+            {(!collapsed || isMobile) && <span>Admin</span>}
+          </Link>
+        )}
         <Link
           to="/settings"
+          onClick={handleNavClick}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all border border-transparent"
         >
           <Settings className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>Ajustes</span>}
+          {(!collapsed || isMobile) && <span>Ajustes</span>}
         </Link>
         <button
-          onClick={() => logout()}
+          onClick={() => {
+            handleNavClick()
+            logout()
+          }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs uppercase tracking-wider text-muted-foreground hover:text-red hover:bg-red/5 transition-all"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>Salir</span>}
+          {(!collapsed || isMobile) && <span>Salir</span>}
         </button>
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <p className="px-3 pt-2 text-[10px] font-mono text-muted-foreground/40 tracking-wide">
             Solo lectura · Nunca ejecuta órdenes
           </p>

@@ -29,3 +29,13 @@ dist-ssr
 
 .env
 .vite
+
+# SQLite database files
+server/data/*.db
+server/data/*.db-wal
+server/data/*.db-shm
+
+# Python
+venv/
+__pycache__/
+*.pyc

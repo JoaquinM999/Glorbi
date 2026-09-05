@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import SectionHeader from '@/components/ui/SectionHeader'
-import { Save, Eye, EyeOff, Shield, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Save, Eye, EyeOff, CheckCircle2, XCircle, Loader2, BarChart3, BriefcaseBusiness } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function Settings() {
@@ -25,6 +25,8 @@ export default function Settings() {
   const [showSecret, setShowSecret] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiSecret, setApiSecret] = useState('')
+  const [iolUsername, setIolUsername] = useState('')
+  const [iolPassword, setIolPassword] = useState('')
 
   // Estado de la prueba de conexión: null | 'testing' | { valid, account?, message? }
   const [testResult, setTestResult] = useState(null)
@@ -37,13 +39,6 @@ export default function Settings() {
       return items[0] || null
     },
   })
-
-  useEffect(() => {
-    if (settings) {
-      setApiKey(settings.binance_api_key || '')
-      setApiSecret(settings.binance_api_secret || '')
-    }
-  }, [settings])
 
   // Resetear el resultado del test si el usuario edita las keys
   useEffect(() => {
@@ -80,13 +75,36 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['userSettings'] })
-      // También invalida los datos de Binance para que el Dashboard los recargue
       queryClient.invalidateQueries({ queryKey: ['binance'] })
-      toast.success('Claves guardadas correctamente')
+      toast.success('Configuración de Binance guardada')
     },
     onError: () => {
       toast.error('Error al guardar las claves')
     },
+  })
+
+  const iolSaveMutation = useMutation({
+    mutationFn: async () => {
+      const data = { iol_username: iolUsername, iol_password: iolPassword }
+      if (settings) await UserSettings.update(settings.id, data)
+      else await UserSettings.create(data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userSettings'] })
+      queryClient.invalidateQueries({ queryKey: ['iol'] })
+      setIolPassword('')
+      toast.success('Configuración de IOL guardada')
+    },
+    onError: () => toast.error('Error al guardar la configuración de IOL'),
+  })
+
+  const iolTestMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await apiClient.post('/api/iol/test', { username: iolUsername, password: iolPassword })
+      return data
+    },
+    onSuccess: () => toast.success('Conexión con IOL validada'),
+    onError: (error) => toast.error(error.response?.data?.message || 'No se pudo validar IOL'),
   })
 
   const handleTest = () => {
@@ -97,7 +115,7 @@ export default function Settings() {
     testMutation.mutate()
   }
 
-  const handleSave = () => {
+  const handleBinanceSave = () => {
     saveMutation.mutate({
       binance_api_key: apiKey,
       binance_api_secret: apiSecret,
@@ -113,19 +131,30 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-3xl space-y-8">
       <SectionHeader title="Configuración" tag="AJUSTES" />
+      <p className="-mt-4 max-w-xl text-xs font-mono leading-relaxed text-muted-foreground/60">
+        Conecta tus plataformas por separado. Cada credencial se cifra en el servidor y solo se usa para consultas de lectura.
+      </p>
 
-      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Shield className="w-5 h-5 text-muted-foreground" />
-          <div>
-            <h2 className="text-sm font-mono font-medium text-foreground">Binance API Keys</h2>
-            <p className="text-[11px] font-mono text-muted-foreground/50 mt-1">
-              Claves de solo lectura para Binance Futures. Glorbi nunca ejecuta órdenes.
-            </p>
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="border-b border-border bg-gradient-to-r from-yellow/10 via-transparent to-transparent px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-yellow/25 bg-yellow/10 text-yellow"><BarChart3 className="w-5 h-5" /></div>
+              <div>
+                <div className="flex items-center gap-2"><h2 className="text-sm font-mono font-medium text-foreground">Binance Futures</h2><span className="text-[9px] font-mono uppercase tracking-wider text-yellow">Solo lectura</span></div>
+                <p className="text-[11px] font-mono text-muted-foreground/60 mt-1">Balance, posiciones y rendimiento sin ejecutar órdenes.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+              <span className={`h-2 w-2 rounded-full ${settings?.binance_api_key ? 'bg-green' : 'bg-muted-foreground/30'}`} />
+              {settings?.binance_api_key ? 'Conectado' : 'Sin conectar'}
+            </div>
           </div>
         </div>
+
+        <div className="p-6 space-y-6">
 
         <div className="space-y-4">
           <div>
@@ -177,8 +206,9 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Botón de prueba de conexión */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+          <span className="text-[10px] font-mono text-muted-foreground/60">{settings?.binance_api_key ? 'Credenciales guardadas. Escribe nuevas para reemplazarlas.' : 'Aún no hay credenciales guardadas.'}</span>
+          <div className="flex items-center gap-2">
           <Button
             variant="outline"
             onClick={handleTest}
@@ -204,23 +234,59 @@ export default function Settings() {
                 : testResult.message}
             </span>
           )}
-        </div>
-
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${apiKey && apiSecret ? 'bg-green' : 'bg-muted-foreground/30'}`} />
-            <span className="text-[10px] font-mono text-muted-foreground">
-              {apiKey && apiSecret ? 'Claves configuradas' : 'Sin claves configuradas'}
-            </span>
-          </div>
           <Button
-            onClick={handleSave}
+            onClick={handleBinanceSave}
             disabled={saveMutation.isPending}
             className="bg-foreground text-background hover:bg-foreground/90 font-mono text-xs uppercase tracking-wider"
           >
             <Save className="w-3.5 h-3.5 mr-2" />
             {saveMutation.isPending ? 'Guardando...' : 'Guardar'}
           </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="border-b border-border bg-gradient-to-r from-green/10 via-transparent to-transparent px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-green/25 bg-green/10 text-green"><BriefcaseBusiness className="w-5 h-5" /></div>
+              <div>
+                <div className="flex items-center gap-2"><h2 className="text-sm font-mono font-medium text-foreground">InvertirOnline</h2><span className="text-[9px] font-mono uppercase tracking-wider text-green">Solo lectura</span></div>
+                <p className="text-[11px] font-mono text-muted-foreground/60 mt-1">Cartera, saldo y operaciones de tu cuenta comitente.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+              <span className={`h-2 w-2 rounded-full ${settings?.iol_configured ? 'bg-green' : 'bg-muted-foreground/30'}`} />
+              {settings?.iol_configured ? 'Conectado' : 'Sin conectar'}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Usuario IOL</Label>
+            <Input value={iolUsername} onChange={(event) => setIolUsername(event.target.value)} placeholder={settings?.iol_configured ? 'Configurado (reemplazar)' : 'Tu usuario'} className="mt-1.5 bg-secondary border-border font-mono text-xs" autoComplete="off" />
+          </div>
+          <div>
+            <Label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Contraseña IOL</Label>
+            <Input type="password" value={iolPassword} onChange={(event) => setIolPassword(event.target.value)} placeholder={settings?.iol_configured ? 'Configurada (reemplazar)' : 'Tu contraseña'} className="mt-1.5 bg-secondary border-border font-mono text-xs" autoComplete="new-password" />
+          </div>
+        </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+            <span className="text-[10px] font-mono text-muted-foreground/60">{settings?.iol_configured ? 'Cuenta guardada. Completa ambos campos para reemplazarla.' : 'La cuenta IOL todavía no está configurada.'}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => iolTestMutation.mutate()} disabled={iolTestMutation.isPending || !iolUsername || !iolPassword} className="border-border font-mono text-xs uppercase tracking-wider">
+                {iolTestMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Probar conexión
+              </Button>
+              <Button onClick={() => iolSaveMutation.mutate()} disabled={iolSaveMutation.isPending || !iolUsername || !iolPassword} className="bg-green text-background hover:bg-green/90 font-mono text-xs uppercase tracking-wider">
+                {iolSaveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {iolSaveMutation.isPending ? 'Guardando...' : 'Guardar IOL'}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -242,6 +308,7 @@ export default function Settings() {
           5. Copia la Key y el Secret aquí — el Secret solo se muestra una vez en Binance
         </p>
       </div>
+    </div>
     </div>
   )
 }

@@ -1,0 +1,111 @@
+/* AdminModal.css */
+.admin-dialog {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+}
+
+/* Dialog Header */
+.admin-dialog [role="dialog"] > div:first-child {
+  border-bottom: 1px solid #334155;
+  padding-bottom: 16px;
+}
+
+/* Dialog Title */
+.admin-dialog h2 {
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+/* Dialog Description */
+.admin-dialog p {
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+/* Form Elements */
+.admin-form input,
+.admin-form select,
+.admin-form textarea {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.admin-form input::placeholder {
+  color: #64748b;
+}
+
+/* Select (Shadcn) */
+[cmdk-root] {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+}
+
+/* Buttons in Modal */
+.admin-form button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.admin-form button[type="submit"] {
+  background: #3b82f6;
+  color: white;
+}
+
+.admin-form button[type="submit"]:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.admin-form button[type="submit"]:disabled {
+  background: #1e40af;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-form button[type="button"] {
+  background: transparent;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+
+.admin-form button[type="button"]:hover {
+  background: #0f172a;
+  border-color: #475569;
+}
+
+/* Checkbox */
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Error inline */
+.admin-error-inline {
+  background-color: #7f1d1d;
+  border-left: 4px solid #dc2626;
+}
+
+/* Success inline */
+.admin-success-inline {
+  background-color: #064e3b;
+  border-left: 4px solid #10b981;
+}

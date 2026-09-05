@@ -29,7 +29,11 @@ async function fetchPositions() {
 }
 
 async function fetchIncome(days = 90) {
-  const { data } = await apiClient.get(`/api/binance/income?days=${days}`)
+  // Rangos largos disparan la exportación asíncrona de Binance en el backend
+  // (puede tardar varios minutos + descarga del CSV), así que necesitamos más
+  // margen que el timeout default de apiClient para esta llamada puntual.
+  const timeout = days > 89 ? 210000 : 20000
+  const { data } = await apiClient.get(`/api/binance/income?days=${days}`, { timeout })
   return data
 }
 
@@ -53,7 +57,7 @@ export function useBinanceAccount(enabled = true) {
     enabled,
     retry: (count, err) => {
       // No reintentar si el usuario no tiene keys configuradas
-      if (err?.response?.data?.error === 'no_keys') return false
+      if (['no_keys', 'decrypt_failed'].includes(err?.response?.data?.error)) return false
       return count < 2
     },
   })
@@ -72,7 +76,10 @@ export function useBinancePositions(enabled = true) {
     refetchInterval: STALE.positions,
     enabled,
     retry: (count, err) => {
-      if (err?.response?.data?.error === 'no_keys') return false
+      if (['no_keys', 'decrypt_failed'].includes(err?.response?.data?.error)) return false
+      // Un export largo crea un job en Binance; reintentarlo automáticamente
+      // puede crear trabajos duplicados y activar el límite de exportación.
+      if (days > 89) return false
       return count < 2
     },
   })
@@ -85,13 +92,18 @@ export function useBinancePositions(enabled = true) {
  * @param {number} days - cuántos días hacia atrás (máx. 180)
  */
 export function useBinanceIncome(days = 90, enabled = true) {
+  // Rangos largos (ej. "Todo" = 730 días) implican varias llamadas ventaneadas
+  // a Binance — les damos más tiempo de caché para no repetir ese costo
+  // cada vez que el componente se vuelve a montar.
+  const staleTime = days > 90 ? 15 * 60 * 1000 : STALE.income
+
   return useQuery({
     queryKey: ['binance', 'income', days],
     queryFn:  () => fetchIncome(days),
-    staleTime: STALE.income,
+    staleTime,
     enabled,
     retry: (count, err) => {
-      if (err?.response?.data?.error === 'no_keys') return false
+      if (['no_keys', 'decrypt_failed'].includes(err?.response?.data?.error)) return false
       return count < 2
     },
   })

@@ -3,7 +3,7 @@ import SectionHeader from "@/components/ui/SectionHeader";
 import LoadingState from "@/components/ui/LoadingState";
 import NewsCard from "@/components/news/NewsCard";
 import SignalDirectory from "@/components/news/SignalDirectory";
-import { useNewsData, useSignalFeeds } from "@/lib/hooks/useNewsData";
+import { useNewsData, useSignalFeeds, useXFeed } from "@/lib/hooks/useNewsData";
 import { CAT_LABELS } from "@/lib/utils/news-classifier";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +23,7 @@ export default function NewsSignals() {
   const [catFilter, setCatFilter] = useState("all");
   const { data: news, isLoading: newsLoading } = useNewsData();
   const { data: signals, isLoading: signalsLoading } = useSignalFeeds();
+  const { data: xFeed, isLoading: xFeedLoading } = useXFeed();
 
   return (
     <div className="space-y-6">
@@ -131,6 +132,30 @@ export default function NewsSignals() {
             <LoadingState message="cargando señales" />
           ) : (
             <>
+              <SectionHeader title="Publicaciones X en vivo" tag="X LIVE" />
+              {!xFeed?.configured && (
+                <p className="text-[11px] font-mono text-muted-foreground mb-4">
+                  Agrega <span className="text-foreground">X_BEARER_TOKEN</span> al backend para recibir publicaciones reales. Puedes suscribirte desde el directorio mientras tanto.
+                </p>
+              )}
+              {xFeedLoading ? (
+                <LoadingState message="cargando X" />
+              ) : xFeed?.tweets?.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+                  {xFeed.tweets.slice(0, 30).map((tweet) => (
+                    <div key={tweet.id} className="bg-card border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-mono text-muted-foreground/60">{tweet.source} @{tweet.handle}</span>
+                        <span className="text-[9px] font-mono text-green uppercase">En vivo</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap mb-2">{tweet.text}</p>
+                      <a href={tweet.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-mono text-muted-foreground hover:text-foreground">Ver en X</a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] font-mono text-muted-foreground mb-8">No hay publicaciones recientes de tus suscripciones.</p>
+              )}
               {signals?.length > 0 && (
                 <>
                   <SectionHeader title="Últimas publicaciones" tag="FEED" />

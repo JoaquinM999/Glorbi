@@ -6,8 +6,10 @@
  * Si las keys son inválidas → <InvalidKeysState error={msg} />
  * Si hay datos → dashboard completo con métricas reales.
  */
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { staggerContainer, staggerItemSubtle } from '@/lib/animations'
 import StatCard from '@/components/ui/StatCard'
 import SectionHeader from '@/components/ui/SectionHeader'
 import MetricGrid, { MetricRow } from '@/components/ui/MetricGrid'
@@ -15,7 +17,8 @@ import LoadingState from '@/components/ui/LoadingState'
 import DashboardCharts from '@/components/dashboard/DashboardCharts'
 import PeriodSelector from '@/components/dashboard/PeriodSelector'
 import AIExecutiveSummary from '@/components/dashboard/AIExecutiveSummary'
-import { fmtUsd, fmtLarge } from '@/lib/utils/format'
+import IolPortfolioPanel from '@/components/dashboard/IolPortfolioPanel'
+import { fmtUsd } from '@/lib/utils/format'
 import { usePeriod } from '@/lib/PeriodContext'
 import { useFearGreed, useBtcDominance } from '@/lib/hooks/useMarketData'
 import {
@@ -75,13 +78,26 @@ function calcStats(dailyData) {
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const [scope, setScope] = useState('all')
   const { filterByPeriod, activePeriod } = usePeriod()
   const { data: fgData  } = useFearGreed()
   const { data: glbData } = useBtcDominance()
 
   const account   = useBinanceAccount()
   const positions = useBinancePositions()
-  const income    = useBinanceIncome(90)
+
+  // FIX: antes se pedían siempre 90 días fijos al backend sin importar el
+  // período elegido, y DESPUÉS se filtraba en el frontend — por eso "Todo"
+  // nunca mostraba más de ~88-90 días: nunca se le pidieron más al backend.
+  // Ahora la cantidad de días que se piden depende del período activo.
+  const daysForPeriod = {
+    today: 2,     // margen de 1 día extra por zona horaria
+    '7d':  10,
+    '30d': 35,
+    all:   365,   // Binance limita la exportación asíncrona a 365 días (error -4165 si se supera)
+  }[activePeriod] || 90
+
+  const income = useBinanceIncome(daysForPeriod)
 
   const noKeys   = account.error?.response?.data?.error === 'no_keys'
   const keyError = !noKeys && account.error
@@ -90,22 +106,34 @@ export default function Dashboard() {
 
   const isLoading = account.isLoading || income.isLoading
 
+  // Traer "Todo" el historial puede tardar unos segundos más — Binance
+  // solo permite ventanas de ~90 días por llamada, así que para 2 años
+  // de historial el backend hace varias llamadas seguidas.
+  const loadingMessage = income.isLoading && daysForPeriod > 90
+    ? 'preparando historial completo desde Binance — puede tardar hasta 30 segundos'
+    : 'conectando con Binance Futures'
+
   // Filtrar datos de income por período seleccionado
-  const allDailyData   = income.data?.byDay || []
+  const allDailyData   = Array.isArray(income.data?.byDay) ? income.data.byDay : []
   const filteredDaily  = useMemo(
     () => filterByPeriod(allDailyData, 'date'),
     [allDailyData, activePeriod]
   )
+
   const stats = useMemo(() => calcStats(filteredDaily), [filteredDaily])
   const totals = income.data?.totals || { realizedPnl: 0, fundingFee: 0, commission: 0 }
 
   // ── Estados condicionales ────────────────────────────────────────────────────
-  if (noKeys)   return <NoKeysState />
-  if (keyError) return <InvalidKeysState message={keyError} />
-  if (isLoading) return <LoadingState message="conectando con Binance Futures" />
+  if (noKeys) {
+    return <div className="space-y-8"><DashboardScope scope={scope} setScope={setScope} /><>{scope === 'investments' ? <IolPortfolioPanel /> : <NoKeysState />}</></div>
+  }
+  if (keyError) {
+    return <div className="space-y-8"><DashboardScope scope={scope} setScope={setScope} /><>{scope === 'investments' ? <IolPortfolioPanel /> : <InvalidKeysState message={keyError} />}</></div>
+  }
+  if (isLoading) return <LoadingState message={loadingMessage} />
 
   const acct = account.data || {}
-  const openPos = positions.data || []
+  const openPos = Array.isArray(positions.data) ? positions.data : []
   const floatingPnl = acct.totalUnrealizedProfit || 0
   const walletBalance = acct.totalWalletBalance || 0
   const marginBalance = acct.totalMarginBalance || 0
@@ -114,6 +142,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <DashboardScope scope={scope} setScope={setScope} />
+      {scope !== 'crypto' && <IolPortfolioPanel />}
+
+      {scope !== 'investments' && <>
 
       {/* Header + selector de período */}
       <div className="flex items-center justify-between">
@@ -127,36 +159,49 @@ export default function Dashboard() {
         <PeriodSelector />
       </div>
 
-      {/* KPIs principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          eyebrow="Wallet Balance"
-          value={`$${walletBalance.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-          badge={`Margen: $${marginBalance.toLocaleString('en', { maximumFractionDigits: 2 })}`}
-          badgeType="neutral"
-        />
-        <StatCard
-          eyebrow="Net PNL (período)"
-          value={fmtUsd(netPnlPeriod)}
-          badge={`${filteredDaily.length}d · Realizado + Funding`}
-          badgeType={netPnlPeriod >= 0 ? 'positive' : 'negative'}
-        />
-        <StatCard
-          eyebrow="Floating PNL"
-          value={fmtUsd(floatingPnl)}
-          badge={`${openPos.length} posición${openPos.length !== 1 ? 'es' : ''} abierta${openPos.length !== 1 ? 's' : ''}`}
-          badgeType={floatingPnl >= 0 ? 'positive' : 'negative'}
-        />
-        <StatCard
-          eyebrow="Profit Factor"
-          value={stats ? `${stats.profitFactor.toFixed(2)}x` : '—'}
-          badge={stats ? `Win Rate ${stats.winRate.toFixed(1)}%` : 'Sin datos'}
-          badgeType={stats && stats.winRate >= 50 ? 'positive' : 'negative'}
-        />
-      </div>
+      {/* KPIs principales — entrada escalonada sutil (página densa en datos) */}
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <motion.div variants={staggerItemSubtle}>
+          <StatCard
+            eyebrow="Wallet Balance"
+            value={`$${walletBalance.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            badge={`Margen: $${marginBalance.toLocaleString('en', { maximumFractionDigits: 2 })}`}
+            badgeType="neutral"
+          />
+        </motion.div>
+        <motion.div variants={staggerItemSubtle}>
+          <StatCard
+            eyebrow="Net PNL (período)"
+            value={fmtUsd(netPnlPeriod)}
+            badge={`${filteredDaily.length}d · Realizado + Funding`}
+            badgeType={netPnlPeriod >= 0 ? 'positive' : 'negative'}
+          />
+        </motion.div>
+        <motion.div variants={staggerItemSubtle}>
+          <StatCard
+            eyebrow="Floating PNL"
+            value={fmtUsd(floatingPnl)}
+            badge={`${openPos.length} posición${openPos.length !== 1 ? 'es' : ''} abierta${openPos.length !== 1 ? 's' : ''}`}
+            badgeType={floatingPnl >= 0 ? 'positive' : 'negative'}
+          />
+        </motion.div>
+        <motion.div variants={staggerItemSubtle}>
+          <StatCard
+            eyebrow="Profit Factor"
+            value={stats ? `${stats.profitFactor.toFixed(2)}x` : '—'}
+            badge={stats ? `Win Rate ${stats.winRate.toFixed(1)}%` : 'Sin datos'}
+            badgeType={stats && stats.winRate >= 50 ? 'positive' : 'negative'}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Posiciones abiertas */}
-      {openPos.length > 0 && (
+      {scope !== 'investments' && openPos.length > 0 && (
         <>
           <SectionHeader title="Posiciones Abiertas" tag="LIVE" />
           <div className="bg-card border border-border rounded-lg overflow-hidden overflow-x-auto">
@@ -212,7 +257,7 @@ export default function Dashboard() {
       )}
 
       {/* Performance summary */}
-      {stats && (
+      {scope !== 'investments' && stats && (
         <>
           <SectionHeader title="Performance Summary" tag="P&L" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -237,7 +282,7 @@ export default function Dashboard() {
       )}
 
       {/* Gráficos PNL */}
-      {filteredDaily.length > 0
+      {scope !== 'investments' && (filteredDaily.length > 0
         ? <DashboardCharts data={filteredDaily} />
         : (
           <div className="bg-card border border-border rounded-lg h-40 flex items-center justify-center">
@@ -245,11 +290,10 @@ export default function Dashboard() {
               Sin datos de PNL para el período seleccionado
             </span>
           </div>
-        )
-      }
+        ))}
 
       {/* AI Executive Summary */}
-      {stats && (
+      {scope !== 'investments' && stats && (
         <AIExecutiveSummary
           stats={stats}
           fgValue={fgData?.value ?? null}
@@ -259,7 +303,7 @@ export default function Dashboard() {
       )}
 
       {/* Risk metrics */}
-      {stats && (
+      {scope !== 'investments' && stats && (
         <>
           <SectionHeader title="Risk & Performance Metrics" tag="QUANT" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -286,6 +330,36 @@ export default function Dashboard() {
           </div>
         </>
       )}
+      </>}
+    </div>
+  )
+}
+
+function DashboardScope({ scope, setScope }) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-[10px] font-mono uppercase tracking-[2px] text-muted-foreground/50">Vista de portfolio</p>
+        <p className="mt-1 text-xs font-mono text-muted-foreground">Cambia entre tus cuentas sin salir del Dashboard.</p>
+      </div>
+      <div className="inline-flex w-fit rounded-lg border border-border bg-secondary p-1" role="tablist" aria-label="Vista de portfolio">
+        {[
+          { value: 'all', label: 'Todo' },
+          { value: 'crypto', label: 'Cripto' },
+          { value: 'investments', label: 'Inversiones' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="tab"
+            aria-selected={scope === option.value}
+            onClick={() => setScope(option.value)}
+            className={`rounded-md px-3 py-2 text-[10px] font-mono uppercase tracking-wider transition-colors ${scope === option.value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

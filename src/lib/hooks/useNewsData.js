@@ -30,6 +30,7 @@ export function useNewsData() {
       return articles
     },
     staleTime: 2 * 60 * 1000,
+    refetchInterval: 60 * 1000,
     retry: 1,
   })
 }
@@ -45,5 +46,18 @@ export function useSignalFeeds() {
     queryKey: ['signalFeeds'],
     queryFn: async () => [],
     staleTime: Infinity,
+  })
+}
+
+export function useXFeed() {
+  return useQuery({
+    queryKey: ['xFeed'],
+    queryFn: async () => {
+      const { data } = await apiClient.get('/api/x-feed')
+      return data
+    },
+    refetchInterval: 60 * 1000,
+    staleTime: 30 * 1000,
+    retry: 1,
   })
 }

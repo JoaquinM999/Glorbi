@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import SectionHeader from "@/components/ui/SectionHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ExternalLink } from "lucide-react";
+import apiClient from "@/api/apiClient";
+import { useXFeed } from "@/lib/hooks/useNewsData";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, Loader2, Bell, BellOff } from "lucide-react";
+import { toast } from "sonner";
 
 const X_ACCOUNTS = [
   { handle: "KobeissiLetter", name: "The Kobeissi Letter", cat: "macro", desc: "Macro global, Fed, índices, flujos institucionales", emoji: "📊" },
@@ -43,12 +47,50 @@ const CAT_COLORS = {
 
 export default function SignalDirectory() {
   const [filter, setFilter] = useState("all");
+  const [customHandle, setCustomHandle] = useState("");
+  const queryClient = useQueryClient();
+  const { data: xFeed } = useXFeed();
+  const subscriptions = xFeed?.subscriptions || [];
+
+  const subscriptionMutation = useMutation({
+    mutationFn: async ({ handle, subscribed }) => {
+      if (subscribed) await apiClient.delete(`/api/x-feed/${handle}`);
+      else await apiClient.post("/api/x-feed", { handle });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["xFeed"] });
+      toast.success("Suscripciones actualizadas");
+    },
+    onError: (error) => toast.error(error.response?.data?.message || "No se pudo actualizar la suscripción"),
+  });
+
+  const subscribeCustom = (event) => {
+    event.preventDefault();
+    const handle = customHandle.replace(/^@/, "").trim();
+    if (!handle) return;
+    subscriptionMutation.mutate({ handle, subscribed: false });
+    setCustomHandle("");
+  };
 
   const filtered = X_ACCOUNTS.filter(a => filter === "all" || a.cat === filter);
 
   return (
     <div>
       <SectionHeader title="Directorio de cuentas X — señales clave" tag="DIRECTORIO" />
+
+      <form onSubmit={subscribeCustom} className="flex flex-col sm:flex-row gap-2 mb-4">
+        <input
+          value={customHandle}
+          onChange={(event) => setCustomHandle(event.target.value)}
+          placeholder="@usuario de X"
+          aria-label="Usuario de X"
+          className="h-9 flex-1 rounded-md border border-border bg-card px-3 text-xs font-mono text-foreground outline-none focus:ring-1 focus:ring-ring"
+        />
+        <button type="submit" disabled={subscriptionMutation.isPending} className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border px-3 text-xs font-mono hover:bg-secondary disabled:opacity-50">
+          {subscriptionMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+          Suscribirme
+        </button>
+      </form>
 
       <div className="mb-4">
         <Select value={filter} onValueChange={setFilter}>
@@ -100,6 +142,15 @@ export default function SignalDirectory() {
               >
                 Ver en X <ExternalLink className="w-3 h-3" />
               </a>
+              <button
+                type="button"
+                onClick={() => subscriptionMutation.mutate({ handle: account.handle, subscribed: subscriptions.includes(account.handle) })}
+                disabled={subscriptionMutation.isPending}
+                className="inline-flex items-center gap-1.5 ml-2 text-[10px] font-mono text-muted-foreground/60 border border-border rounded px-2 py-1 hover:text-foreground hover:border-border/80 transition-colors disabled:opacity-50"
+              >
+                {subscriptions.includes(account.handle) ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
+                {subscriptions.includes(account.handle) ? "Dejar de seguir" : "Seguir"}
+              </button>
             </div>
           );
         })}

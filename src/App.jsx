@@ -20,11 +20,16 @@ import PageNotFound from './lib/PageNotFound'
 
 import AppLayout from '@/components/layout/AppLayout'
 import Login from '@/pages/Login'
+import ForgotPassword from '@/pages/ForgotPassword'
+import ResetPassword from '@/pages/ResetPassword'
+import VerifyEmail from '@/pages/VerifyEmail'
 import Dashboard from '@/pages/Dashboard'
 import MarketPulse from '@/pages/MarketPulse'
 import NewsSignals from '@/pages/NewsSignals'
 import Screener from '@/pages/Screener'
 import Settings from '@/pages/Settings'
+import Investments from '@/pages/Investments'
+import Admin from '@/pages/Admin'
 
 /**
  * Wraps protected routes. If the user is not authenticated, redirects to /login
@@ -87,7 +92,14 @@ function App() {
               {/* Public route — only accessible when NOT logged in */}
               <Route element={<PublicOnly />}>
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
               </Route>
+
+              {/* Rutas libres — accesibles con o sin sesión activa, porque
+                  el usuario puede llegar acá desde un link de email en
+                  cualquier dispositivo/estado de sesión */}
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
 
               {/* Protected routes — redirect to /login if not authenticated */}
               <Route element={<RequireAuth />}>
@@ -96,7 +108,9 @@ function App() {
                   <Route path="/market-pulse" element={<MarketPulse />} />
                   <Route path="/news" element={<NewsSignals />} />
                   <Route path="/screener" element={<Screener />} />
+                  <Route path="/investments" element={<Investments />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/admin" element={<Admin />} />
                 </Route>
               </Route>
 
