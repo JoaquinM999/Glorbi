@@ -47,18 +47,25 @@ export default function Settings() {
 
   const testMutation = useMutation({
     mutationFn: async () => {
+      console.log('[DEBUG] Enviando test de Binance...', { apiKey: apiKey?.slice(0, 4) + '...' })
       const { data } = await apiClient.post('/api/binance/test', {
         binance_api_key: apiKey,
         binance_api_secret: apiSecret,
       })
+      console.log('[DEBUG] Respuesta del test de Binance:', data)
       return data
     },
-    onMutate: () => setTestResult('testing'),
+    onMutate: () => {
+      console.log('[DEBUG] onMutate: testMutation empezó')
+      setTestResult('testing')
+    },
     onSuccess: (data) => {
+      console.log('[DEBUG] onSuccess: testMutation', data)
       setTestResult(data)
       if (data.valid) toast.success('Conexión exitosa con Binance Futures')
     },
     onError: (err) => {
+      console.error('[DEBUG] onError: testMutation falló', err)
       const message = err.response?.data?.message || 'No se pudo validar la conexión'
       setTestResult({ valid: false, message })
       toast.error(message)
@@ -67,47 +74,71 @@ export default function Settings() {
 
   const saveMutation = useMutation({
     mutationFn: async (data) => {
+      console.log('[DEBUG] saveMutation ejecutando. ¿settings existe?', !!settings, settings)
       if (settings) {
+        console.log('[DEBUG] → UserSettings.update', settings.id)
         await UserSettings.update(settings.id, data)
       } else {
+        console.log('[DEBUG] → UserSettings.create (settings era null/undefined)')
         await UserSettings.create(data)
       }
     },
     onSuccess: () => {
+      console.log('[DEBUG] saveMutation onSuccess')
       queryClient.invalidateQueries({ queryKey: ['userSettings'] })
       queryClient.invalidateQueries({ queryKey: ['binance'] })
       toast.success('Configuración de Binance guardada')
     },
-    onError: () => {
+    onError: (err) => {
+      console.error('[DEBUG] saveMutation onError:', err)
       toast.error('Error al guardar las claves')
     },
   })
 
   const iolSaveMutation = useMutation({
     mutationFn: async () => {
+      console.log('[DEBUG] iolSaveMutation ejecutando. ¿settings existe?', !!settings, settings)
       const data = { iol_username: iolUsername, iol_password: iolPassword }
-      if (settings) await UserSettings.update(settings.id, data)
-      else await UserSettings.create(data)
+      if (settings) {
+        console.log('[DEBUG] → UserSettings.update (IOL)', settings.id)
+        await UserSettings.update(settings.id, data)
+      } else {
+        console.log('[DEBUG] → UserSettings.create (IOL) — settings era null/undefined')
+        await UserSettings.create(data)
+      }
     },
     onSuccess: () => {
+      console.log('[DEBUG] iolSaveMutation onSuccess')
       queryClient.invalidateQueries({ queryKey: ['userSettings'] })
       queryClient.invalidateQueries({ queryKey: ['iol'] })
       setIolPassword('')
       toast.success('Configuración de IOL guardada')
     },
-    onError: () => toast.error('Error al guardar la configuración de IOL'),
+    onError: (err) => {
+      console.error('[DEBUG] iolSaveMutation onError:', err)
+      toast.error('Error al guardar la configuración de IOL')
+    },
   })
 
   const iolTestMutation = useMutation({
     mutationFn: async () => {
+      console.log('[DEBUG] Enviando test de IOL...', { username: iolUsername })
       const { data } = await apiClient.post('/api/iol/test', { username: iolUsername, password: iolPassword })
+      console.log('[DEBUG] Respuesta del test de IOL:', data)
       return data
     },
-    onSuccess: () => toast.success('Conexión con IOL validada'),
-    onError: (error) => toast.error(error.response?.data?.message || 'No se pudo validar IOL'),
+    onSuccess: (data) => {
+      console.log('[DEBUG] iolTestMutation onSuccess', data)
+      toast.success('Conexión con IOL validada')
+    },
+    onError: (error) => {
+      console.error('[DEBUG] iolTestMutation onError:', error)
+      toast.error(error.response?.data?.message || 'No se pudo validar IOL')
+    },
   })
 
   const handleTest = () => {
+    console.log('[DEBUG] handleTest() llamado. apiKey presente:', !!apiKey, 'apiSecret presente:', !!apiSecret)
     if (!apiKey || !apiSecret) {
       toast.error('Ingresa API Key y API Secret primero')
       return
@@ -116,6 +147,7 @@ export default function Settings() {
   }
 
   const handleBinanceSave = () => {
+    console.log('[DEBUG] handleBinanceSave() llamado. settings actual:', settings)
     saveMutation.mutate({
       binance_api_key: apiKey,
       binance_api_secret: apiSecret,
@@ -277,11 +309,11 @@ export default function Settings() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
             <span className="text-[10px] font-mono text-muted-foreground/60">{settings?.iol_configured ? 'Cuenta guardada. Completa ambos campos para reemplazarla.' : 'La cuenta IOL todavía no está configurada.'}</span>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => iolTestMutation.mutate()} disabled={iolTestMutation.isPending || !iolUsername || !iolPassword} className="border-border font-mono text-xs uppercase tracking-wider">
+              <Button variant="outline" onClick={() => { console.log('[DEBUG] Click en Probar conexión IOL'); iolTestMutation.mutate() }} disabled={iolTestMutation.isPending || !iolUsername || !iolPassword} className="border-border font-mono text-xs uppercase tracking-wider">
                 {iolTestMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 Probar conexión
               </Button>
-              <Button onClick={() => iolSaveMutation.mutate()} disabled={iolSaveMutation.isPending || !iolUsername || !iolPassword} className="bg-green text-background hover:bg-green/90 font-mono text-xs uppercase tracking-wider">
+              <Button onClick={() => { console.log('[DEBUG] Click en Guardar IOL'); iolSaveMutation.mutate() }} disabled={iolSaveMutation.isPending || !iolUsername || !iolPassword} className="bg-green text-background hover:bg-green/90 font-mono text-xs uppercase tracking-wider">
                 {iolSaveMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {iolSaveMutation.isPending ? 'Guardando...' : 'Guardar IOL'}
               </Button>

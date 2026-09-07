@@ -1,12 +1,13 @@
 /**
  * FearGreedGauge.jsx
  *
- * v3: más aire entre el número y el badge (gap y tamaño de fuente
- * aumentados) para que no se vea apretado. El centrado vertical dentro
- * de la card se resuelve desde MarketPulse.jsx (contenedor flex).
+ * Muestra el medidor polar con colores según rango.
+ * Ahora incluye su propia card con hover reactivo y número animado.
  */
 import React from "react";
 import { fgColor } from "@/lib/utils/format";
+import GlareHover from "@/components/ui/GlareHover";
+import AnimatedNumber from "@/components/ui/AnimatedNumber";
 
 const ZONES = [
   { min: 0,  max: 24,  color: "#EF4444" },
@@ -41,7 +42,7 @@ function arcPath(cx, cy, r1, r2, startDeg, endDeg) {
 }
 
 export default function FearGreedGauge({ value }) {
-  const { color, label } = fgColor(value);
+  const { color } = fgColor(value);
 
   const W = 280, H = 132;
   const cx = W / 2, cy = H - 20;
@@ -59,8 +60,15 @@ export default function FearGreedGauge({ value }) {
   }));
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="w-full text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
+    <div 
+      className="bg-card border rounded-xl p-5 h-full flex flex-col items-center justify-between relative overflow-hidden"
+      style={{ 
+        borderColor: `${color}30`, 
+        boxShadow: `inset 0 0 40px -20px ${color}`,
+        background: `radial-gradient(circle at center top, ${color}15 0%, transparent 70%), hsl(var(--card))`
+      }}
+    >
+      <div className="w-full text-left text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2 relative z-10">
         Fear &amp; Greed Index
       </div>
 
@@ -107,20 +115,9 @@ export default function FearGreedGauge({ value }) {
         <text x={W - 14} y={cy + 18} textAnchor="middle" fontFamily="IBM Plex Mono, monospace" fontSize="9" fill="#444">CODICIA</text>
       </svg>
 
-      {/* Número + clasificación — más aire (gap-4, tamaño mayor) para que no se vea apretado */}
-      <div className="flex items-center justify-center gap-4 mt-3">
-        <span className="text-5xl font-mono font-normal tracking-tight leading-none" style={{ color }}>
-          {value}
-        </span>
-        <span
-          className="inline-block px-3 py-1.5 rounded-full text-[11px] font-mono uppercase tracking-[2px] border whitespace-nowrap"
-          style={{
-            color,
-            borderColor: `${color}40`,
-            backgroundColor: `${color}14`,
-          }}
-        >
-          {label}
+      <div className="flex items-center justify-center mt-3 relative z-10">
+        <span className="text-[52px] font-mono font-normal tracking-tight leading-none" style={{ color }}>
+          <AnimatedNumber value={value} />
         </span>
       </div>
     </div>

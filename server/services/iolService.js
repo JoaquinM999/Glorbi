@@ -100,4 +100,8 @@ function clearToken(ownerKey) {
   tokenRequests.delete(ownerKey)
 }
 
-module.exports = { getPortfolio, getAccountStatus, getOperationsHistory, getQuotes, getAccessToken, clearToken, BASE_URL, COUNTRY }
+async function getMarketPanel(ownerKey, credentials, instrumento, panel) {
+  return request(ownerKey, credentials, 'GET', `/api/v2/Cotizaciones/${encodeURIComponent(instrumento)}/${encodeURIComponent(panel)}/${encodeURIComponent(COUNTRY)}`)
+}
+
+module.exports = { getPortfolio, getAccountStatus, getOperationsHistory, getQuotes, getMarketPanel, getAccessToken, clearToken, BASE_URL, COUNTRY }

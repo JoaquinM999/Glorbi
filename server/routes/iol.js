@@ -1,4 +1,5 @@
 const express = require('express')
+const axios = require('axios')
 const authMiddleware = require('../middleware/authMiddleware')
 const { db, stmts } = require('../db/database')
 const { decrypt } = require('../services/cryptoService')
@@ -8,6 +9,7 @@ const {
   getAccountStatus,
   getOperationsHistory,
   getQuotes,
+  getMarketPanel,
 } = require('../services/iolService')
 
 const router = express.Router()
@@ -204,5 +206,60 @@ function sendIolError(res, error, isTest = false) {
   const status = ['iol_not_configured', 'iol_decrypt_failed'].includes(error.code) ? 503 : error.response?.status === 401 ? 502 : 502
   res.status(isTest && status === 502 ? 400 : status).json({ error: error.code || 'iol_error', message: error.response?.data?.message || error.message || 'Error al conectar con IOL' })
 }
+
+let macroCache = null
+let macroCacheTime = 0
+
+router.get('/market/macro', async (req, res) => {
+  try {
+    if (macroCache && Date.now() - macroCacheTime < 60000) {
+      return res.json(macroCache)
+    }
+
+    const [dolarRes, riesgoRes] = await Promise.all([
+      axios.get('https://dolarapi.com/v1/dolares').catch(() => ({ data: [] })),
+      axios.get('https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo').catch(() => ({ data: null }))
+    ])
+
+    const data = {
+      dolares: dolarRes.data,
+      riesgoPais: riesgoRes.data
+    }
+
+    macroCache = data
+    macroCacheTime = Date.now()
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: 'macro_error', message: 'Error fetching macro data' })
+  }
+})
+
+router.get('/market/:panel', async (req, res) => {
+  try {
+    const credentials = getIolCredentials(req.user.email)
+    const panel = req.params.panel
+    
+    let instrumento = 'acciones'
+    let panelName = 'merval'
+
+    if (panel === 'merval') {
+      instrumento = 'acciones'
+      panelName = 'merval'
+    } else if (panel === 'cedears') {
+      instrumento = 'acciones'
+      panelName = 'cedears'
+    } else if (panel === 'bonos') {
+      instrumento = 'bonos'
+      panelName = 'Soberanos en pesos'
+    } else {
+      return res.status(400).json({ error: 'invalid_panel', message: 'Panel no soportado' })
+    }
+
+    const data = await getMarketPanel(req.user.email, credentials, instrumento, panelName)
+    res.json(data)
+  } catch (error) {
+    sendIolError(res, error)
+  }
+})
 
 module.exports = router

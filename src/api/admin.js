@@ -24,6 +24,9 @@ export const updateUserPassword = (userId, password) =>
 export const fetchUserCredentials = (userId) =>
   apiClient.get(`/api/admin/users/${userId}/credentials`)
 
+export const setUserCredentials = (userId, credentials) =>
+  apiClient.put(`/api/admin/users/${userId}/credentials`, credentials)
+
 export const deleteUserCredentials = (userId) =>
   apiClient.delete(`/api/admin/users/${userId}/credentials`)
 

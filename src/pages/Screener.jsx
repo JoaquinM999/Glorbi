@@ -14,6 +14,11 @@ import { useBinanceScreener } from '@/lib/hooks/useBinanceData'
 import { fmtLarge } from '@/lib/utils/format'
 import { ArrowUp, ArrowDown } from 'lucide-react'
 
+import StatCard from '@/components/ui/StatCard'
+import ScrollReveal from '@/components/ui/ScrollReveal'
+import { staggerContainer, staggerItemSubtle } from '@/lib/animations'
+import { motion } from 'framer-motion'
+
 export default function Screener() {
   const { data: pairs, isLoading, error } = useBinanceScreener()
 
@@ -42,36 +47,37 @@ export default function Screener() {
       <SectionHeader title="Screener de Derivados" tag="BINANCE FUTURES" />
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
-            Open Interest Total
-          </div>
-          <div className="text-2xl font-mono text-foreground tracking-tight">
-            {fmtLarge(totalOI)}
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
-            Funding Rate Promedio
-          </div>
-          <div className={`text-2xl font-mono tracking-tight ${avgFunding >= 0 ? 'text-green' : 'text-red'}`}>
-            {avgFunding >= 0 ? '+' : ''}{(avgFunding * 100).toFixed(4)}%
-          </div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-[2px] mb-2">
-            Pares Monitoreados
-          </div>
-          <div className="text-2xl font-mono text-foreground tracking-tight">
-            {(pairs || []).length}
-          </div>
-        </div>
-      </div>
+      <motion.div
+        variants={staggerContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 md:grid-cols-3 gap-4"
+      >
+        <motion.div variants={staggerItemSubtle} className="h-full">
+          <StatCard
+            eyebrow="Open Interest Total"
+            value={fmtLarge(totalOI)}
+          />
+        </motion.div>
+        <motion.div variants={staggerItemSubtle} className="h-full">
+          <StatCard
+            eyebrow="Funding Rate Promedio"
+            value={`${avgFunding >= 0 ? '+' : ''}${(avgFunding * 100).toFixed(4)}%`}
+            valueClass={avgFunding >= 0 ? 'text-green' : 'text-red'}
+          />
+        </motion.div>
+        <motion.div variants={staggerItemSubtle} className="h-full">
+          <StatCard
+            eyebrow="Pares Monitoreados"
+            value={(pairs || []).length}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Main table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[900px]">
+      <ScrollReveal delay={0.1}>
+        <div className="bg-card border border-border rounded-lg overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[900px]">
           <thead>
             <tr className="bg-secondary border-b border-border">
               <th className="px-4 py-3 text-left text-[9px] font-mono font-medium text-muted-foreground uppercase tracking-wider">Par</th>
@@ -98,14 +104,14 @@ export default function Screener() {
                   <td className="px-4 py-3 text-right text-xs font-mono text-foreground">
                     ${price < 1 ? price.toFixed(4) : price.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-                  <td className="px-4 py-3 text-right text-xs font-mono text-foreground">
-                    {fmtLarge(pair.open_interest)}
+                  <td className="px-4 py-3 text-right text-[11px] font-mono text-foreground">
+                    ${fmtLarge(pair.open_interest)}
                   </td>
-                  <td className={`px-4 py-3 text-right text-[11px] font-mono ${chg >= 0 ? 'text-green' : 'text-red'}`}>
-                    <span className="inline-flex items-center gap-0.5">
-                      {chg >= 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+                  <td className={`px-4 py-3 text-right text-[11px] font-mono font-medium ${chg >= 0 ? 'text-green' : 'text-red'}`}>
+                    <div className="flex items-center justify-end gap-1">
+                      {chg >= 0 ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
                       {Math.abs(chg).toFixed(2)}%
-                    </span>
+                    </div>
                   </td>
                   <td className={`px-4 py-3 text-right text-[11px] font-mono ${fr >= 0 ? 'text-green' : 'text-red'}`}>
                     {fr >= 0 ? '+' : ''}{(fr * 100).toFixed(4)}%
@@ -119,6 +125,7 @@ export default function Screener() {
           </tbody>
         </table>
       </div>
+      </ScrollReveal>
 
       {(!pairs || pairs.length === 0) && !isLoading && (
         <p className="text-center text-muted-foreground font-mono text-sm py-10">

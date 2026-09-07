@@ -14,6 +14,7 @@ import StatCard from '@/components/ui/StatCard'
 import SectionHeader from '@/components/ui/SectionHeader'
 import MetricGrid, { MetricRow } from '@/components/ui/MetricGrid'
 import LoadingState from '@/components/ui/LoadingState'
+import ScrollReveal from '@/components/ui/ScrollReveal'
 import DashboardCharts from '@/components/dashboard/DashboardCharts'
 import PeriodSelector from '@/components/dashboard/PeriodSelector'
 import AIExecutiveSummary from '@/components/dashboard/AIExecutiveSummary'
@@ -143,7 +144,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <DashboardScope scope={scope} setScope={setScope} />
-      {scope !== 'crypto' && <IolPortfolioPanel />}
 
       {scope !== 'investments' && <>
 
@@ -166,7 +166,7 @@ export default function Dashboard() {
         animate="show"
         className="grid grid-cols-2 lg:grid-cols-4 gap-4"
       >
-        <motion.div variants={staggerItemSubtle}>
+        <motion.div variants={staggerItemSubtle} className="h-full">
           <StatCard
             eyebrow="Wallet Balance"
             value={`$${walletBalance.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -174,7 +174,7 @@ export default function Dashboard() {
             badgeType="neutral"
           />
         </motion.div>
-        <motion.div variants={staggerItemSubtle}>
+        <motion.div variants={staggerItemSubtle} className="h-full">
           <StatCard
             eyebrow="Net PNL (período)"
             value={fmtUsd(netPnlPeriod)}
@@ -182,7 +182,7 @@ export default function Dashboard() {
             badgeType={netPnlPeriod >= 0 ? 'positive' : 'negative'}
           />
         </motion.div>
-        <motion.div variants={staggerItemSubtle}>
+        <motion.div variants={staggerItemSubtle} className="h-full">
           <StatCard
             eyebrow="Floating PNL"
             value={fmtUsd(floatingPnl)}
@@ -190,7 +190,7 @@ export default function Dashboard() {
             badgeType={floatingPnl >= 0 ? 'positive' : 'negative'}
           />
         </motion.div>
-        <motion.div variants={staggerItemSubtle}>
+        <motion.div variants={staggerItemSubtle} className="h-full">
           <StatCard
             eyebrow="Profit Factor"
             value={stats ? `${stats.profitFactor.toFixed(2)}x` : '—'}
@@ -202,7 +202,7 @@ export default function Dashboard() {
 
       {/* Posiciones abiertas */}
       {scope !== 'investments' && openPos.length > 0 && (
-        <>
+        <ScrollReveal>
           <SectionHeader title="Posiciones Abiertas" tag="LIVE" />
           <div className="bg-card border border-border rounded-lg overflow-hidden overflow-x-auto">
             <table className="w-full min-w-[700px]">
@@ -253,12 +253,12 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
-        </>
+        </ScrollReveal>
       )}
 
       {/* Performance summary */}
       {scope !== 'investments' && stats && (
-        <>
+        <ScrollReveal delay={0.1}>
           <SectionHeader title="Performance Summary" tag="P&L" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <MetricGrid>
@@ -278,7 +278,7 @@ export default function Dashboard() {
               <MetricRow label="P/L Ratio"        value={stats.plRatio.toFixed(2)} />
             </MetricGrid>
           </div>
-        </>
+        </ScrollReveal>
       )}
 
       {/* Gráficos PNL */}
@@ -304,7 +304,7 @@ export default function Dashboard() {
 
       {/* Risk metrics */}
       {scope !== 'investments' && stats && (
-        <>
+        <ScrollReveal delay={0.15}>
           <SectionHeader title="Risk & Performance Metrics" tag="QUANT" />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricGrid>
@@ -328,9 +328,11 @@ export default function Dashboard() {
               />
             </div>
           </div>
-        </>
+        </ScrollReveal>
       )}
       </>}
+
+      {scope !== 'crypto' && <IolPortfolioPanel />}
     </div>
   )
 }

@@ -64,7 +64,7 @@ export function useTrendingCoins() {
     queryKey: ["trending"],
     queryFn: async () => {
       const data = await fetchJson("https://api.coingecko.com/api/v3/search/trending");
-      return (data.coins || []).slice(0, 7);
+      return (data.coins || []).slice(0, 10);
     },
     staleTime: 5 * 60 * 1000,
     retry: 2,

@@ -180,9 +180,17 @@ const stmts = {
   // Users
   getUserByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
   getUserById:    db.prepare('SELECT * FROM users WHERE id = ?'),
-  getAllUsers: db.prepare(
-    'SELECT id, email, full_name, role, email_verified, created_at FROM users ORDER BY created_at DESC'
-  ),
+  // FIX: la versión anterior solo traía columnas de "users" — has_binance_keys
+  // en admin.js siempre daba false porque binance_api_key vive en la tabla
+  // user_settings, no en users. Con este LEFT JOIN se trae el dato real.
+  getAllUsers: db.prepare(`
+    SELECT
+      u.id, u.email, u.full_name, u.role, u.email_verified, u.created_at,
+      us.binance_api_key IS NOT NULL AS has_binance_keys
+    FROM users u
+    LEFT JOIN user_settings us ON us.created_by = u.email
+    ORDER BY u.created_at DESC
+  `),
   countUsers:     db.prepare('SELECT COUNT(*) as count FROM users'),
   createUser:     db.prepare(
     'INSERT INTO users (id, email, full_name, password, role) VALUES (?, ?, ?, ?, ?)'

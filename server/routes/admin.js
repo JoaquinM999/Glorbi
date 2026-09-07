@@ -17,6 +17,7 @@ const bcrypt = require('bcryptjs')
 const { db, stmts, generateId, generateToken } = require('../db/database')
 const authMiddleware = require('../middleware/authMiddleware')
 const { authLimiter } = require('../middleware/rateLimiters')
+const { encrypt, decrypt } = require('../services/cryptoService')
 
 const router = express.Router()
 
@@ -43,7 +44,7 @@ router.get('/users', (req, res) => {
       role: u.role,
       email_verified: u.email_verified,
       created_at: u.created_at,
-      has_binance_keys: !!u.binance_api_key, // booleano si tiene claves
+      has_binance_keys: !!u.has_binance_keys, // ahora viene del LEFT JOIN en la query, dato real
     }))
     res.json(safe)
   } catch (err) {
@@ -159,15 +160,22 @@ router.delete('/users/:id', (req, res) => {
       return res.status(400).json({ error: 'No puedes eliminar tu propia cuenta' })
     }
 
-    // Eliminar datos del usuario en cascada
-    db.prepare('DELETE FROM user_settings WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM auth_tokens WHERE user_id = ?').run(req.params.id)
-    db.prepare('DELETE FROM feedback WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM x_subscriptions WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM iol_positions WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM iol_transactions WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM portfolio_daily_history WHERE created_by = ?').run(user.email)
-    db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+    // FIX: antes estas 8 queries corrían sueltas, sin transacción. Si
+    // cualquiera de ellas fallaba a mitad de camino (por ejemplo, un error
+    // de FK o de disco), el usuario quedaba parcialmente borrado — con
+    // registros huérfanos en algunas tablas y el usuario todavía en otras.
+    // Con db.transaction(), o se borra todo, o no se borra nada.
+    const deleteCascade = db.transaction(() => {
+      db.prepare('DELETE FROM user_settings WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM auth_tokens WHERE user_id = ?').run(req.params.id)
+      db.prepare('DELETE FROM feedback WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM x_subscriptions WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM iol_positions WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM iol_transactions WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM portfolio_daily_history WHERE created_by = ?').run(user.email)
+      db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+    })
+    deleteCascade()
 
     res.json({ message: 'Usuario eliminado' })
   } catch (err) {
@@ -212,19 +220,78 @@ router.get('/users/:id/credentials', (req, res) => {
 
     // Obtener credenciales desde user_settings
     const settings = stmts.getSettingsByOwner.get(user.email)
-    
+
+    // FIX: antes se mostraba settings.binance_api_key.substring(0,4) directo
+    // de la base — pero ese campo está CIFRADO (AES-256-GCM), así que lo que
+    // se veía eran bytes al azar del texto cifrado, no algo útil de la key
+    // real. Ahora se descifra primero. Si el descifrado falla (por ejemplo,
+    // ENCRYPTION_KEY cambió o no está configurada), no se rompe el panel
+    // entero — simplemente se informa que no se pudo leer.
+    let maskedBinanceKey = null
+    let binanceDecryptError = false
+    if (settings?.binance_api_key) {
+      try {
+        const realKey = decrypt(settings.binance_api_key)
+        maskedBinanceKey = realKey ? `${realKey.slice(0, 4)}...${realKey.slice(-4)}` : null
+      } catch (err) {
+        binanceDecryptError = true
+      }
+    }
+
     const creds = {
       binance: {
         has_keys: !!(settings && settings.binance_api_key),
-        masked_key: (settings && settings.binance_api_key) 
-          ? settings.binance_api_key.substring(0, 4) + '...' 
-          : null,
+        masked_key: maskedBinanceKey,
+        decrypt_error: binanceDecryptError, // el frontend puede avisar si esto es true
       },
     }
 
     res.json(creds)
   } catch (err) {
     console.error('[admin/users/:id/credentials GET]', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// ── PUT /admin/users/:id/credentials ──────────────────────────────────────
+// NUEVO: antes solo existía DELETE (desconectar) — no había forma de que
+// el admin cargue credenciales nuevas para un usuario. Este endpoint
+// permite crear o actualizar Binance/IOL en nombre de un usuario.
+router.put('/users/:id/credentials', async (req, res) => {
+  try {
+    const user = stmts.getUserById.get(req.params.id)
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' })
+    }
+
+    const { binance_api_key, binance_api_secret, iol_username, iol_password } = req.body
+
+    const existing = stmts.getSettingsByOwner.all(user.email)[0]
+
+    if (existing) {
+      stmts.updateSettings.run(
+        binance_api_key ? encrypt(binance_api_key) : existing.binance_api_key,
+        binance_api_secret ? encrypt(binance_api_secret) : existing.binance_api_secret,
+        iol_username ? encrypt(iol_username) : existing.iol_username,
+        iol_password ? encrypt(iol_password) : existing.iol_password,
+        existing.display_name,
+        existing.id
+      )
+    } else {
+      stmts.createSettings.run(
+        generateId(),
+        user.email,
+        binance_api_key ? encrypt(binance_api_key) : null,
+        binance_api_secret ? encrypt(binance_api_secret) : null,
+        iol_username ? encrypt(iol_username) : null,
+        iol_password ? encrypt(iol_password) : null,
+        null
+      )
+    }
+
+    res.json({ message: 'Credenciales guardadas correctamente' })
+  } catch (err) {
+    console.error('[admin/users/:id/credentials PUT]', err)
     res.status(500).json({ error: 'Internal server error' })
   }
 })
@@ -260,8 +327,12 @@ router.delete('/users/:id/credentials', (req, res) => {
 // Estadísticas del sistema
 router.get('/stats', (req, res) => {
   try {
+    // FIX: la query original tenía role = "admin" con comillas DOBLES.
+    // En SQLite, las comillas dobles se interpretan como nombre de columna
+    // (identificador), no como texto — por eso el error "no such column:
+    // admin". Se corrige usando un parámetro (?) en vez de comillas.
     const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count
-    const admins = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = "admin"').get().count
+    const admins = db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin').count
     const usersVerified = db.prepare('SELECT COUNT(*) as count FROM users WHERE email_verified = 1').get().count
     const usersWithBinance = db.prepare('SELECT COUNT(DISTINCT created_by) as count FROM user_settings WHERE binance_api_key IS NOT NULL').get().count
 
